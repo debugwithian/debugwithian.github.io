@@ -351,11 +351,58 @@ function startGame(){
   gameTimeout = setTimeout(()=>{ clearInterval(spawnInterval); spawnInterval = null }, 24000);
 }
 const playBadge = document.getElementById("playBadge");
-playBadge.addEventListener("click", ()=> startGame());
-window.addEventListener("load", ()=>{
-  const saved = parseInt(localStorage.getItem("rbid_minigame_score") || "0",10);
-  if(!isNaN(saved)) score = saved;
-  scoreEl.innerText = score;
+
+function stopGame() {
+  if (spawnInterval) {
+    clearInterval(spawnInterval);
+    spawnInterval = null;
+  }
+  if (gameTimeout) {
+    clearTimeout(gameTimeout);
+    gameTimeout = null;
+  }
+  const icons = document.querySelectorAll(".gameIcon");
+  icons.forEach(icon => icon.remove());
+  
+  playBadge.innerText = "Start Game";
+  playBadge.style.backgroundColor = "#0d6efd"; // blue when stopped
+}
+
+function startGame() {
+  if (spawnInterval) return; // already running
+  const rounds = 22;
+  let spawned = 0;
+
+  spawnInterval = setInterval(() => {
+    if (spawned >= rounds) { 
+      clearInterval(spawnInterval); 
+      spawnInterval = null; 
+      playBadge.innerText = "Start Game";
+      playBadge.style.backgroundColor = "#0d6efd"; // back to blue
+      return;
+    }
+    const icon = techIcons[Math.floor(Math.random() * techIcons.length)];
+    placeIcon(icon);
+    spawned++;
+  }, 600);
+
+  gameTimeout = setTimeout(() => {
+    clearInterval(spawnInterval);
+    spawnInterval = null;
+    playBadge.innerText = "Start Game";
+    playBadge.style.backgroundColor = "#0d6efd"; // back to blue
+  }, 24000);
+
+  playBadge.innerText = "Stop Game";
+  playBadge.style.backgroundColor = "#dc3545"; // red when running
+}
+
+playBadge.addEventListener("click", () => {
+  if (spawnInterval) {
+    stopGame();
+  } else {
+    startGame();
+  }
 });
 const aiBody = document.getElementById("aiBody");
 function appendMessage(text, who){
@@ -365,12 +412,24 @@ function appendMessage(text, who){
   aiBody.appendChild(div);
   aiBody.scrollTop = aiBody.scrollHeight;
 }
+async function getPrompt() {
+  try {
+    const response = await fetch('prompt.txt');
+    if (!response.ok) throw new Error('Failed to load prompt.txt');
+    const text = await response.text();
+    return text.trim();
+  } catch (err) {
+    console.error(err);
+    return "Default prompt text"; // fallback
+  }
+} 
 async function callGroq(prompt){
   if(!GROQ_API_KEY || GROQ_API_KEY.includes("REPLACE")){
     appendMessage("Groq API key not provided. Replace the placeholder in the script to test.", "bot");
     return null;
   }
-  const payload = { model: MODEL, messages: [{ role: "system", content: "You are a concise assistant answering about Rene's portfolio." }, { role: "user", content: prompt }], max_tokens: 700, temperature: 0.2 };
+  const userPrompt = await getPrompt();
+  const payload = { model: MODEL, messages: [{ role: "system", content: userPrompt }, { role: "user", content: prompt }], max_tokens: 700, temperature: 0.2 };
   try{
     const res = await fetch(GROQ_ENDPOINT, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + GROQ_API_KEY }, body: JSON.stringify(payload) });
     if(!res.ok){ appendMessage("Error from Groq: " + res.status, "bot"); return null }

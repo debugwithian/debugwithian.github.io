@@ -18,7 +18,13 @@ const observer = new IntersectionObserver(entries => {
 document.querySelectorAll("section").forEach(sec => observer.observe(sec));
 
 // Toast Achievements
-const achievements = { about: "🎯 Origin Story!", tech: "⚙️ Tech Guru!", experience: "💼 Veteran Dev!", ai-section: "🤖 AI Ally Online!", contact: "📨 Connected!" };
+const achievements = { 
+  about: "🎯 Origin Story!", 
+  tech: "⚙️ Tech Guru!", 
+  experience: "💼 Veteran Dev!", 
+  "ai-section": "🤖 AI Ally Online!", 
+  contact: "📨 Connected!" 
+};
 const shown = {};
 const toast = document.getElementById("achievementToast");
 const toastObserver = new IntersectionObserver(entries => {

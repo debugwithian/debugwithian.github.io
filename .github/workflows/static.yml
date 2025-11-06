@@ -1,35 +1,59 @@
-name: Update config.js for User Pages
+name: Deploy Static Site with Groq Key
 
 on:
-  workflow_dispatch:
   push:
     branches: ["main"]
+  workflow_dispatch:
 
 permissions:
-  contents: write   # must be write to commit back
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
-  update-config:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       # Step 1: Checkout repository
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      # Step 2: Create config.js with secret
-      - name: Create config.js
+      # Step 2: Inject Groq API Key into config.js in build folder
+      - name: Inject Groq API Key
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
-          echo "Creating config.js with Groq key..."
-          echo "const GROQ_API_KEY = \"${GROQ_API_KEY}\";" > config.js
-          ls -la
-          cat config.js
+          mkdir -p dist
+          echo "const GROQ_API_KEY = \"${GROQ_API_KEY}\";" > dist/config.js
+          echo "Files in dist:"
+          ls -la dist
+          echo "✅ Groq key injected into dist/config.js"
 
-      # Step 3: Commit and push back to main branch
-      - name: Commit and push config.js
+      # Step 3: Copy all site files into dist folder
+      - name: Prepare site files
         run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add config.js
-          git commit -m "Update config.js [ci skip]" || echo "No changes to commit"
-          git push
+          cp index.html dist/
+          cp script.js dist/
+          cp style.css dist/
+          # Copy other static assets if any
+          mkdir -p dist/assets
+          cp -r assets/* dist/assets || echo "No assets folder"
+
+      # Step 4: Setup GitHub Pages
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v5
+
+      # Step 5: Upload Pages artifact
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'dist'
+
+      # Step 6: Deploy artifact to GitHub Pages
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

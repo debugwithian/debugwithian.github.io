@@ -151,6 +151,23 @@ function appendMessage(text, who){
   aiBody.appendChild(div);
   aiBody.scrollTop = aiBody.scrollHeight;
 }
+
+// Chat history to maintain continuity
+let chatHistory = [];
+
+// Append message to chat window
+function appendMessage(text, who){
+  const div = document.createElement("div");
+  div.className = "ai-msg " + (who==="user" ? "user" : "bot");
+  div.innerText = text;
+  aiBody.appendChild(div);
+  aiBody.scrollTop = aiBody.scrollHeight;
+
+  // Add to chat history for AI context
+  chatHistory.push({role: who === "user" ? "user" : "assistant", content: text});
+}
+
+// Get system prompt
 async function getPrompt() {
   try {
     const response = await fetch('prompt.txt');
@@ -159,29 +176,48 @@ async function getPrompt() {
     return text.trim();
   } catch (err) {
     console.error(err);
-    return "Default prompt text"; // fallback
+    return "You are a helpful assistant answering based on Rene's portfolio only.";
   }
-} 
-async function callGroq(prompt){
+}
+
+// Call Groq API with continuity
+async function callGroq(userMessage){
   if(!GROQ_API_KEY || GROQ_API_KEY.includes("REPLACE")){
     appendMessage("Groq API key not provided. Replace the placeholder in the script to test.", "bot");
     return null;
   }
-  const userPrompt = await getPrompt();
-  const payload = { model: MODEL, messages: [{ role: "system", content: userPrompt }, { role: "user", content: prompt }], max_tokens: 700, temperature: 0.2 };
-  try{
-    const res = await fetch(GROQ_ENDPOINT, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + GROQ_API_KEY }, body: JSON.stringify(payload) });
-    if(!res.ok){ appendMessage("Error from AI: " + res.status, "bot"); return null }
+
+  const systemPrompt = await getPrompt();
+
+  // Construct messages array with system prompt + chat history + latest user message
+  const messages = [{role:"system", content: systemPrompt}, ...chatHistory, {role:"user", content: userMessage}];
+
+  const payload = { model: MODEL, messages, max_tokens: 700, temperature: 0.2 };
+
+  try {
+    const res = await fetch(GROQ_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + GROQ_API_KEY
+      },
+      body: JSON.stringify(payload)
+    });
+    if(!res.ok){ appendMessage("Error from AI: " + res.status, "bot"); return null; }
     const json = await res.json();
     const content = (json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content) || JSON.stringify(json);
+
+    // Add AI reply to chat history
+    chatHistory.push({role:"assistant", content});
+
     return content;
-  }catch(e){
+  } catch(e){
     appendMessage("Network error contacting aiyan bot.", "bot");
     return null;
   }
 }
-const aiInput = document.getElementById("aiInput");
-const aiSend = document.getElementById("aiSend");
+
+// Send message handler
 aiSend.addEventListener("click", async ()=>{
   const q = aiInput.value.trim();
   if(!q) return;
@@ -191,10 +227,12 @@ aiSend.addEventListener("click", async ()=>{
   const ans = await callGroq(q);
   const bots = aiBody.querySelectorAll(".ai-msg.bot");
   if(bots.length) bots[bots.length-1].remove();
-  if(ans === null){ appendMessage("No response.", "bot"); return }
-  appendMessage(ans, "bot");
+  appendMessage(ans ?? "No response.", "bot");
 });
-aiInput.addEventListener("keydown", (e)=>{ if(e.key === "Enter") aiSend.click() });
+
+// Enter key trigger
+aiInput.addEventListener("keydown", e => { if(e.key === "Enter") aiSend.click() });
+
 const aiMin = document.getElementById("aiMin");
 aiMin.addEventListener("click", ()=>{
   const body = document.getElementById("aiBody");

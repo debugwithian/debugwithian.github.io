@@ -363,7 +363,7 @@ function stopGame() {
   }
   const icons = document.querySelectorAll(".gameIcon");
   icons.forEach(icon => icon.remove());
-  playBadge.style.backgroundColor = "#0d6efd"; // blue when stopped
+  playBadge.style.color = "#0d6efd"; // blue when stopped
 }
 
 function startGame() {
@@ -375,7 +375,7 @@ function startGame() {
     if (spawned >= rounds) { 
       clearInterval(spawnInterval); 
       spawnInterval = null; 
-      playBadge.style.backgroundColor = "#0d6efd"; // back to blue
+      playBadge.style.color = "#0d6efd"; // back to blue
       return;
     }
     const icon = techIcons[Math.floor(Math.random() * techIcons.length)];
@@ -386,9 +386,9 @@ function startGame() {
   gameTimeout = setTimeout(() => {
     clearInterval(spawnInterval);
     spawnInterval = null;
-    playBadge.style.backgroundColor = "#0d6efd"; // back to blue
+    playBadge.style.color = "#0d6efd"; // back to blue
   }, 24000);
-  playBadge.style.backgroundColor = "#dc3545"; // red when running
+  playBadge.style.color = "#dc3545"; // red when running
 }
 
 playBadge.addEventListener("click", () => {

@@ -2,12 +2,12 @@ name: Deploy Static Content to GitHub Pages
 
 on:
   push:
-    branches: ["main"]      # Run on pushes to main
-  workflow_dispatch:         # Allow manual trigger
+    branches: ["main"]
+  workflow_dispatch:
 
 permissions:
-  contents: read            # Read repo content
-  pages: write              # Publish Pages
+  contents: read
+  pages: write
   id-token: write
 
 concurrency:
@@ -26,34 +26,37 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Step 2: Inject GROQ_API_KEY into config.js
+      # Step 2: Inject Groq API Key
       - name: Inject Groq API Key
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
           echo "Creating config.js with Groq key..."
-          echo "const GROQ_API_KEY = \"${GROQ_API_KEY}\";" > config.js
-          ls -la
-          cat config.js
-          echo "✅ Groq key injected into config.js"
+          # Adjust path depending on whether you have a build folder
+          mkdir -p dist
+          echo "const GROQ_API_KEY = \"${GROQ_API_KEY}\";" > dist/config.js
+          echo "Files in dist:"
+          ls -la dist
+          cat dist/config.js
+          echo "✅ Groq key injected into dist/config.js"
 
-      # Step 3: (Optional) Build your site if needed
-      # - name: Build Site
-      #   run: |
-      #     npm install
-      #     npm run build
-      #     # Make sure config.js is copied into build output if needed
-      #     cp config.js dist/config.js
+      # Step 3: (Optional) Build site
+      - name: Build Site
+        run: |
+          # Uncomment and adjust if using a build tool
+          # npm install
+          # npm run build
+          echo "Skipping build step (static site assumed)"
 
       # Step 4: Setup GitHub Pages
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
 
-      # Step 5: Upload files to GitHub Pages artifact
+      # Step 5: Upload Pages artifact
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'       # Upload everything in repo (or 'dist/' if using a build folder)
+          path: 'dist'  # must match where config.js and site files are
 
       # Step 6: Deploy artifact to GitHub Pages
       - name: Deploy to GitHub Pages

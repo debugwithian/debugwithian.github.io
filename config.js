@@ -1,2 +1,1 @@
-// js/config.js
-export const GROQ_API_KEY = "your-secret-will-be-injected-here";
+const GROQ_API_KEY = 'your_key_here';

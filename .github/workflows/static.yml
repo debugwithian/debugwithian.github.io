@@ -3,12 +3,12 @@ name: Deploy Static Content to GitHub Pages
 on:
   push:
     branches: ["main"]      # Run on pushes to main
-  workflow_dispatch:         # Manual trigger
+  workflow_dispatch:         # Allow manual trigger
 
 permissions:
-  contents: read            # Required to read repository contents
-  pages: write              # Required to publish Pages
-  id-token: write           
+  contents: read            # Read repo content
+  pages: write              # Publish Pages
+  id-token: write
 
 concurrency:
   group: "pages"
@@ -26,27 +26,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Step 2: Inject GROQ_API_KEY into config.js
+      # Step 2: Inject GROQ_API_KEY into config.js (browser-safe)
       - name: Inject Groq API Key
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
           echo "Creating config.js with Groq key..."
-          mkdir -p ./js
-          echo "export const GROQ_API_KEY = '${GROQ_API_KEY}';" > ./js/config.js
-          echo "✅ Groq key injected into js/config.js"
+          echo "const GROQ_API_KEY = '${GROQ_API_KEY}';" > ./config.js
+          echo "✅ Groq key injected into config.js"
 
-      # Step 3: Configure GitHub Pages
+      # Step 3: Setup GitHub Pages
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
 
-      # Step 4: Upload site content
+      # Step 4: Upload files to GitHub Pages artifact
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'  # or dist/ if you have a build step
+          path: '.'  # Upload everything (or dist/ if built)
 
-      # Step 5: Deploy to GitHub Pages
+      # Step 5: Deploy artifact to GitHub Pages
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

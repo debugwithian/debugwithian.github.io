@@ -20,7 +20,7 @@ Marital status: Single
 About Me:
 With a robust nine-year track record in Web Development, I bring a wealth of expertise, particularly in third-party application integrations, dynamic graphical reports, and service-related analysis. Experienced in team management, I ensure high-quality web solutions that meet and exceed project requirements.
 Education:
-Bachelor of Science in Information Technology specialized in Web and Mobile Development, University of St La Salle, Bacolod City, Year 2011 - 2015
+Bachelor of Science in Information Technology specialized in Web and Mobile Development, University of St La Salle, Bacolod City, Graduated 2015
 Skills:
 Java/Python Web and Microservices Development
 PHP Web Development

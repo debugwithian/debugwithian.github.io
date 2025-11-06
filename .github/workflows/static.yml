@@ -27,35 +27,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Prepare build folder and inject Groq API Key
-      - name: Inject Groq API Key into build folder
-        env:
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-        run: |
-          mkdir -p build
-          echo "const GROQ_API_KEY = \"${GROQ_API_KEY}\";" > build/config.js
-          echo "✅ Groq key injected into build/config.js"
-
-      # Step 3: Copy all site files into build folder
-      - name: Copy site files to build folder
-        run: |
-          cp index.html build/
-          cp script.js build/
-          cp style.css build/
-          mkdir -p build/assets
-          cp -r assets/* build/assets || echo "No assets folder"
-
-      # Step 4: Setup GitHub Pages
+      # Step 2: Setup GitHub Pages
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
 
-      # Step 5: Upload build folder as artifact
+      # Step 3: Upload site files directly as artifact
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'build'
+          path: '.'  # upload entire repository root instead of build folder
 
-      # Step 6: Deploy artifact to GitHub Pages
+      # Step 4: Deploy artifact to GitHub Pages
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

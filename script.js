@@ -1,1 +1,209 @@
-const _0x45fc0b=_0x48a4;(function(_0xb5daf3,_0x4e84b8){const _0x662f0e=_0x48a4,_0x11f9e8=_0xb5daf3();while(!![]){try{const _0x16d604=-parseInt(_0x662f0e(0x185))/0x1+parseInt(_0x662f0e(0x190))/0x2*(parseInt(_0x662f0e(0x18d))/0x3)+parseInt(_0x662f0e(0x1c7))/0x4*(parseInt(_0x662f0e(0x1dc))/0x5)+parseInt(_0x662f0e(0x1e5))/0x6*(-parseInt(_0x662f0e(0x19d))/0x7)+-parseInt(_0x662f0e(0x1d0))/0x8+parseInt(_0x662f0e(0x193))/0x9*(parseInt(_0x662f0e(0x1b2))/0xa)+parseInt(_0x662f0e(0x1af))/0xb;if(_0x16d604===_0x4e84b8)break;else _0x11f9e8['push'](_0x11f9e8['shift']());}catch(_0x5ce32a){_0x11f9e8['push'](_0x11f9e8['shift']());}}}(_0x511f,0xd2de0));const GROQ_ENDPOINT=_0x45fc0b(0x1da),MODEL=_0x45fc0b(0x183);let score=0x0;const scoreEl=document['getElementById'](_0x45fc0b(0x1ad)),gameArea=document[_0x45fc0b(0x187)]('gameArea'),techIcons=[{'label':'HTML','color':'#E44D26','symbol':'<>'},{'label':_0x45fc0b(0x1a7),'color':_0x45fc0b(0x1cf),'symbol':'{}'},{'label':'JS','color':_0x45fc0b(0x1c4),'symbol':'JS'},{'label':_0x45fc0b(0x1d9),'color':'#61DAFB','symbol':'⚛'},{'label':_0x45fc0b(0x1b9),'color':_0x45fc0b(0x191),'symbol':'⬢'},{'label':'TS','color':_0x45fc0b(0x1e8),'symbol':'TS'}];function rand(_0x3cd399,_0x35db8f){const _0x2072fb=_0x45fc0b;return Math[_0x2072fb(0x1f2)]()*(_0x35db8f-_0x3cd399)+_0x3cd399;}function placeIcon(_0x310e75){const _0x5da88e=_0x45fc0b,_0x294088=document[_0x5da88e(0x189)](_0x5da88e(0x1bb));_0x294088['className']=_0x5da88e(0x1c0),_0x294088[_0x5da88e(0x1c6)](_0x5da88e(0x1a0),_0x310e75[_0x5da88e(0x1a2)]),_0x294088[_0x5da88e(0x1a5)]=_0x5da88e(0x1ee)+_0x310e75[_0x5da88e(0x1d5)]+_0x5da88e(0x1f0),_0x294088[_0x5da88e(0x1c9)][_0x5da88e(0x19c)]=_0x310e75[_0x5da88e(0x1e6)];const _0x576af0=Math[_0x5da88e(0x1d3)](rand(0x28,0x40));_0x294088[_0x5da88e(0x1c9)][_0x5da88e(0x1e1)]=_0x576af0+'px',_0x294088[_0x5da88e(0x1c9)][_0x5da88e(0x1df)]=_0x576af0+'px',_0x294088[_0x5da88e(0x1c9)][_0x5da88e(0x1a8)]=rand(0x14,window['innerWidth']-0x64)+'px',_0x294088[_0x5da88e(0x1c9)][_0x5da88e(0x1e7)]=rand(0x78,window[_0x5da88e(0x1c2)]-0xa0)+'px',_0x294088[_0x5da88e(0x1c9)][_0x5da88e(0x1e2)]='0',gameArea[_0x5da88e(0x19f)](_0x294088),_0x294088[_0x5da88e(0x1a1)]([{'transform':_0x5da88e(0x197),'opacity':0x0},{'transform':_0x5da88e(0x1ea),'opacity':0x1}],{'duration':0xc8,'fill':_0x5da88e(0x17e)});let _0x4c72bf=rand(-0x1,0x1),_0x76585f=rand(-0.8,0.8);const _0x198c8b=setInterval(()=>{const _0xc17aee=_0x5da88e;if(!_0x294088[_0xc17aee(0x199)]){clearInterval(_0x198c8b);return;}const _0x41515a=_0x294088[_0xc17aee(0x182)]();if(_0x41515a[_0xc17aee(0x1a8)]<0x8||_0x41515a['right']>window[_0xc17aee(0x1a9)]-0x8)_0x4c72bf=-_0x4c72bf;if(_0x41515a[_0xc17aee(0x1e7)]<0x50||_0x41515a['bottom']>window[_0xc17aee(0x1c2)]-0x50)_0x76585f=-_0x76585f;_0x294088[_0xc17aee(0x1c9)]['left']=_0x41515a[_0xc17aee(0x1a8)]+_0x4c72bf+'px',_0x294088[_0xc17aee(0x1c9)][_0xc17aee(0x1e7)]=_0x41515a[_0xc17aee(0x1e7)]+_0x76585f+'px';},0x14);_0x294088[_0x5da88e(0x1c8)](_0x5da88e(0x1b1),()=>_0x294088[_0x5da88e(0x1c9)][_0x5da88e(0x1d6)]=_0x5da88e(0x1de)),_0x294088[_0x5da88e(0x1c8)]('mouseleave',()=>_0x294088[_0x5da88e(0x1c9)]['transform']=_0x5da88e(0x1ea)),_0x294088[_0x5da88e(0x1c8)](_0x5da88e(0x1dd),_0x3903b1=>{const _0x3fdf48=_0x5da88e;_0x3903b1[_0x3fdf48(0x18f)](),clearInterval(_0x198c8b);const _0x15fc21=_0x294088['getBoundingClientRect'](),_0x4d76c7=document[_0x3fdf48(0x189)](_0x3fdf48(0x1bb));_0x4d76c7[_0x3fdf48(0x1d2)]=_0x3fdf48(0x180),_0x4d76c7[_0x3fdf48(0x1c9)][_0x3fdf48(0x1a8)]=_0x15fc21['left']+_0x15fc21[_0x3fdf48(0x1e1)]/0x2+'px',_0x4d76c7['style'][_0x3fdf48(0x1e7)]=_0x15fc21[_0x3fdf48(0x1e7)]+'px',_0x4d76c7[_0x3fdf48(0x1c9)]['fontSize']=_0x3fdf48(0x1e4),_0x4d76c7[_0x3fdf48(0x1b8)]='+15',document[_0x3fdf48(0x1b4)][_0x3fdf48(0x19f)](_0x4d76c7),_0x4d76c7[_0x3fdf48(0x1a1)]([{'transform':_0x3fdf48(0x18a),'opacity':0x1},{'transform':_0x3fdf48(0x198),'opacity':0x0}],{'duration':0x2bc,'easing':'cubic-bezier(.2,.8,.2,1)'}),setTimeout(()=>_0x4d76c7[_0x3fdf48(0x17f)](),0x2f8),_0x294088[_0x3fdf48(0x1a1)]([{'transform':'scale(1.2)','opacity':0x1},{'transform':_0x3fdf48(0x195),'opacity':0x0}],{'duration':0x12c,'fill':_0x3fdf48(0x17e)}),setTimeout(()=>_0x294088[_0x3fdf48(0x17f)](),0x140),score+=0xf,scoreEl[_0x3fdf48(0x1b8)]=score,localStorage[_0x3fdf48(0x1ac)]('rbid_minigame_score',score),burstEffect(_0x15fc21['left']+_0x15fc21['width']/0x2,_0x15fc21['top']+_0x15fc21['height']/0x2);}),setTimeout(()=>{const _0x56bd69=_0x5da88e;try{if(_0x294088[_0x56bd69(0x199)])_0x294088['remove']();}catch(_0x2bcadd){}},rand(0x1b58,0x3a98));}function burstEffect(_0x52b809,_0x101f79){const _0x28d7cd=_0x45fc0b;for(let _0x527c6d=0x0;_0x527c6d<0xa;_0x527c6d++){const _0x381fc6=document[_0x28d7cd(0x189)](_0x28d7cd(0x1bb));_0x381fc6[_0x28d7cd(0x1d2)]=_0x28d7cd(0x1c0),_0x381fc6[_0x28d7cd(0x1c9)]['width']=_0x28d7cd(0x1ed),_0x381fc6[_0x28d7cd(0x1c9)][_0x28d7cd(0x1df)]='12px',_0x381fc6['style']['left']=_0x52b809+'px',_0x381fc6[_0x28d7cd(0x1c9)][_0x28d7cd(0x1e7)]=_0x101f79+'px',_0x381fc6[_0x28d7cd(0x1c9)]['borderRadius']=_0x28d7cd(0x1b7),_0x381fc6[_0x28d7cd(0x1c9)][_0x28d7cd(0x19c)]='hsl('+Math[_0x28d7cd(0x1d3)](rand(0x0,0x168))+_0x28d7cd(0x1b6),_0x381fc6['style'][_0x28d7cd(0x1f4)]=_0x28d7cd(0x1bf),_0x381fc6[_0x28d7cd(0x1c9)][_0x28d7cd(0x1ec)]=_0x28d7cd(0x1bf),document[_0x28d7cd(0x1b4)][_0x28d7cd(0x19f)](_0x381fc6);const _0x2421c1=rand(0x0,Math['PI']*0x2),_0x37e588=rand(0x28,0x78),_0x2e6201=_0x52b809+Math[_0x28d7cd(0x1bc)](_0x2421c1)*_0x37e588,_0x28371d=_0x101f79+Math[_0x28d7cd(0x1f6)](_0x2421c1)*_0x37e588;_0x381fc6[_0x28d7cd(0x1a1)]([{'transform':_0x28d7cd(0x1b0),'opacity':0x1},{'transform':'translate('+(_0x2e6201-_0x52b809)+_0x28d7cd(0x1c3)+(_0x28371d-_0x101f79)+'px)\x20rotate('+rand(0xb4,0x2d0)+_0x28d7cd(0x1d4),'opacity':0x0}],{'duration':0x384,'easing':_0x28d7cd(0x181)}),setTimeout(()=>_0x381fc6[_0x28d7cd(0x17f)](),0x3b6);}}let spawnInterval=null,gameTimeout=null;function startGame(){if(spawnInterval)return;const _0x1c6b72=0x16;let _0x3d0d39=0x0;spawnInterval=setInterval(()=>{const _0x10a975=_0x48a4;if(_0x3d0d39>=_0x1c6b72){clearInterval(spawnInterval),spawnInterval=null;return;}const _0x301876=techIcons[Math[_0x10a975(0x1d3)](Math[_0x10a975(0x1f2)]()*techIcons[_0x10a975(0x1cc)])];placeIcon(_0x301876),_0x3d0d39++;},0x258),gameTimeout=setTimeout(()=>{clearInterval(spawnInterval),spawnInterval=null;},0x5dc0);}const playBadge=document[_0x45fc0b(0x187)](_0x45fc0b(0x18e));function stopGame(){const _0x4e491d=_0x45fc0b;spawnInterval&&(clearInterval(spawnInterval),spawnInterval=null);gameTimeout&&(clearTimeout(gameTimeout),gameTimeout=null);const _0x594ae4=document['querySelectorAll'](_0x4e491d(0x18c));_0x594ae4[_0x4e491d(0x192)](_0x43479e=>_0x43479e['remove']()),playBadge[_0x4e491d(0x1c9)][_0x4e491d(0x1e6)]=_0x4e491d(0x1f5);}function startGame(){const _0x54ed4c=_0x45fc0b;if(spawnInterval)return;const _0x468b60=0x16;let _0x8b1f61=0x0;spawnInterval=setInterval(()=>{const _0xc9ac52=_0x48a4;if(_0x8b1f61>=_0x468b60){clearInterval(spawnInterval),spawnInterval=null,playBadge[_0xc9ac52(0x1c9)][_0xc9ac52(0x1e6)]=_0xc9ac52(0x1f5);return;}const _0x8103f7=techIcons[Math['floor'](Math[_0xc9ac52(0x1f2)]()*techIcons[_0xc9ac52(0x1cc)])];placeIcon(_0x8103f7),_0x8b1f61++;},0x258),gameTimeout=setTimeout(()=>{const _0x1f33cb=_0x48a4;clearInterval(spawnInterval),spawnInterval=null,playBadge[_0x1f33cb(0x1c9)][_0x1f33cb(0x1e6)]=_0x1f33cb(0x1f5);},0x5dc0),playBadge[_0x54ed4c(0x1c9)][_0x54ed4c(0x1e6)]=_0x54ed4c(0x1db);}playBadge[_0x45fc0b(0x1c8)](_0x45fc0b(0x1dd),()=>{spawnInterval?stopGame():startGame();});const aiBody=document[_0x45fc0b(0x187)]('aiBody');function appendMessage(_0x52405e,_0x491447){const _0x4f9d03=_0x45fc0b,_0x13470f=document['createElement'](_0x4f9d03(0x1bb));_0x13470f[_0x4f9d03(0x1d2)]=_0x4f9d03(0x1a4)+(_0x491447==='user'?_0x4f9d03(0x1cb):_0x4f9d03(0x1e3)),_0x13470f[_0x4f9d03(0x1b8)]=_0x52405e,aiBody[_0x4f9d03(0x19f)](_0x13470f),aiBody['scrollTop']=aiBody[_0x4f9d03(0x1d8)];}let chatHistory=[];function appendMessage(_0x23a80d,_0x3aafba){const _0x162d68=_0x45fc0b,_0x474307=document[_0x162d68(0x189)](_0x162d68(0x1bb));_0x474307[_0x162d68(0x1d2)]=_0x162d68(0x1a4)+(_0x3aafba===_0x162d68(0x1cb)?_0x162d68(0x1cb):_0x162d68(0x1e3)),_0x474307[_0x162d68(0x1b8)]=_0x23a80d,aiBody[_0x162d68(0x19f)](_0x474307),aiBody[_0x162d68(0x196)]=aiBody[_0x162d68(0x1d8)],chatHistory[_0x162d68(0x1cd)]({'role':_0x3aafba==='user'?'user':'assistant','content':_0x23a80d});}async function getPrompt(){const _0x4e8d8=_0x45fc0b;try{const _0x44a142=await fetch(_0x4e8d8(0x194));if(!_0x44a142['ok'])throw new Error('Failed\x20to\x20load\x20prompt.txt');const _0x22a3d2=await _0x44a142['text']();return _0x22a3d2['trim']();}catch(_0x597fa3){return console['error'](_0x597fa3),_0x4e8d8(0x19e);}}async function callGroq(_0x25445b){const _0x2c9272=_0x45fc0b,_0x2e79b0=await getPrompt(),_0x537124=[{'role':_0x2c9272(0x1ba),'content':_0x2e79b0},...chatHistory,{'role':_0x2c9272(0x1cb),'content':_0x25445b}],_0x27e4bb={'model':MODEL,'messages':_0x537124,'max_tokens':0x2bc,'temperature':0.2};try{const _0x574b26=await fetch(GROQ_ENDPOINT,{'method':_0x2c9272(0x1eb),'headers':{'Content-Type':'application/json','Authorization':_0x2c9272(0x1be)},'body':JSON[_0x2c9272(0x1ae)](_0x27e4bb)});if(!_0x574b26['ok'])return appendMessage('Error\x20from\x20AI:\x20'+_0x574b26[_0x2c9272(0x1ab)],'bot'),null;const _0x1399cd=await _0x574b26[_0x2c9272(0x1a3)](),_0xb9fee8=_0x1399cd[_0x2c9272(0x1b5)]&&_0x1399cd[_0x2c9272(0x1b5)][0x0]&&_0x1399cd['choices'][0x0][_0x2c9272(0x188)]&&_0x1399cd[_0x2c9272(0x1b5)][0x0][_0x2c9272(0x188)][_0x2c9272(0x1f1)]||JSON[_0x2c9272(0x1ae)](_0x1399cd);return chatHistory[_0x2c9272(0x1cd)]({'role':_0x2c9272(0x1d7),'content':_0xb9fee8}),_0xb9fee8;}catch(_0x18433f){return appendMessage(_0x2c9272(0x1d1),_0x2c9272(0x1e3)),null;}}aiSend[_0x45fc0b(0x1c8)](_0x45fc0b(0x1dd),async()=>{const _0x1ce61e=_0x45fc0b,_0x3940cf=aiInput[_0x1ce61e(0x1ef)][_0x1ce61e(0x1e9)]();if(!_0x3940cf)return;appendMessage(_0x3940cf,'user'),aiInput['value']='',appendMessage(_0x1ce61e(0x1bd),_0x1ce61e(0x1e3));const _0x5e0803=await callGroq(_0x3940cf),_0x1c4b73=aiBody[_0x1ce61e(0x1f3)](_0x1ce61e(0x1b3));if(_0x1c4b73[_0x1ce61e(0x1cc)])_0x1c4b73[_0x1c4b73[_0x1ce61e(0x1cc)]-0x1][_0x1ce61e(0x17f)]();appendMessage(_0x5e0803??_0x1ce61e(0x186),'bot');}),aiInput['addEventListener'](_0x45fc0b(0x1c5),_0x4ae80c=>{const _0x34a32e=_0x45fc0b;if(_0x4ae80c[_0x34a32e(0x1ca)]==='Enter')aiSend[_0x34a32e(0x1dd)]();});const aiMin=document[_0x45fc0b(0x187)](_0x45fc0b(0x1aa));function _0x48a4(_0x22fe55,_0x3b64d7){const _0x511fe7=_0x511f();return _0x48a4=function(_0x48a433,_0x49c0b0){_0x48a433=_0x48a433-0x17e;let _0x5c0e2f=_0x511fe7[_0x48a433];return _0x5c0e2f;},_0x48a4(_0x22fe55,_0x3b64d7);}aiMin[_0x45fc0b(0x1c8)](_0x45fc0b(0x1dd),()=>{const _0xbc3ef8=_0x45fc0b,_0x16d9da=document[_0xbc3ef8(0x187)](_0xbc3ef8(0x184)),_0x3b5be3=document['querySelector'](_0xbc3ef8(0x19b));_0x16d9da[_0xbc3ef8(0x1c9)]['display']===_0xbc3ef8(0x1bf)?(_0x16d9da[_0xbc3ef8(0x1c9)]['display']=_0xbc3ef8(0x18b),_0x3b5be3[_0xbc3ef8(0x1c9)]['display']=_0xbc3ef8(0x18b),aiMin['innerHTML']=_0xbc3ef8(0x19a)):(_0x16d9da[_0xbc3ef8(0x1c9)]['display']=_0xbc3ef8(0x1bf),_0x3b5be3[_0xbc3ef8(0x1c9)][_0xbc3ef8(0x1a6)]=_0xbc3ef8(0x1bf),aiMin['innerHTML']=_0xbc3ef8(0x1ce));}),document['addEventListener']('visibilitychange',()=>{const _0x385683=_0x45fc0b;if(document[_0x385683(0x1e0)])localStorage['setItem'](_0x385683(0x1c1),score);});function _0x511f(){const _0x568cf5=['playBadge','stopPropagation','13238ouDlzR','#339933','forEach','5137353qwshAO','prompt.txt','scale(0.2)','scrollTop','scale(0.8)','translateY(-60px)','parentElement','<i\x20class=\x22fas\x20fa-chevron-down\x22></i>','.ai-footer','background','2821154Ggfoda','You\x20are\x20a\x20helpful\x20assistant\x20answering\x20based\x20on\x20Rene\x27s\x20portfolio\x20only.','appendChild','data-label','animate','label','json','ai-msg\x20','innerHTML','display','CSS','left','innerWidth','aiMin','status','setItem','score','stringify','9726706JIqVIc','translate(0,0)\x20rotate(0)','mouseenter','20xnxsvg','.ai-msg.bot','body','choices',',80%,60%)','3px','innerText','Node','system','div','cos','Thinking...','Bearer\x20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','none','gameIcon','rbid_minigame_score','innerHeight','px,','#F7DF1E','keydown','setAttribute','4LThoxI','addEventListener','style','key','user','length','push','<i\x20class=\x22fas\x20fa-chevron-up\x22></i>','#1572B6','11439072RMEJGq','Network\x20error\x20contacting\x20aiyan\x20bot.','className','floor','deg)','symbol','transform','assistant','scrollHeight','React','https://api.groq.com/openai/v1/chat/completions','#dc3545','748625nIQGtr','click','scale(1.08)','height','hidden','width','opacity','bot','16px','6ERaKiO','color','top','#3178C6','trim','scale(1)','POST','pointerEvents','10px','<span\x20style=\x22pointer-events:none;font-weight:700\x22>','value','</span>','content','random','querySelectorAll','boxShadow','#0d6efd','sin','forwards','remove','popupPoints','cubic-bezier(.2,.8,.2,1)','getBoundingClientRect','llama-3.1-8b-instant','aiBody','822644NZgEUf','No\x20response.','getElementById','message','createElement','translateY(0)','flex','.gameIcon','609zinkVs'];_0x511f=function(){return _0x568cf5;};return _0x511f();}
+// ------------------ Game Variables ------------------
+let score = 0;
+const scoreEl = document.getElementById("score");
+const gameArea = document.getElementById("gameArea");
+const techIcons = [
+  {label:"HTML", color:"#E44D26", symbol:"<>"}, 
+  {label:"CSS", color:"#1572B6", symbol:"{}"}, 
+  {label:"JS", color:"#F7DF1E", symbol:"JS"}, 
+  {label:"React", color:"#61DAFB", symbol:"⚛"}, 
+  {label:"Node", color:"#339933", symbol:"⬢"},
+  {label:"TS", color:"#3178C6", symbol:"TS"}
+];
+
+// ------------------ Game Functions ------------------
+function rand(min,max){return Math.random()*(max-min)+min}
+
+function placeIcon(icon){
+  const el = document.createElement("div");
+  el.className = "gameIcon";
+  el.setAttribute("data-label", icon.label);
+  el.innerHTML = `<span style="pointer-events:none;font-weight:700">${icon.symbol}</span>`;
+  el.style.background = icon.color;
+  const size = Math.floor(rand(40,64));
+  el.style.width = size + "px";
+  el.style.height = size + "px";
+  el.style.left = rand(20, window.innerWidth - 100) + "px";
+  el.style.top = rand(120, window.innerHeight - 160) + "px";
+  el.style.opacity = "0";
+  gameArea.appendChild(el);
+  el.animate([{transform:"scale(0.8)", opacity:0},{transform:"scale(1)", opacity:1}], {duration:200, fill:"forwards"});
+  let vx = rand(-1.0,1.0);
+  let vy = rand(-0.8,0.8);
+  const move = setInterval(()=>{
+    if(!el.parentElement){ clearInterval(move); return }
+    const rect = el.getBoundingClientRect();
+    if(rect.left < 8 || rect.right > window.innerWidth-8) vx = -vx;
+    if(rect.top < 80 || rect.bottom > window.innerHeight-80) vy = -vy;
+    el.style.left = (rect.left + vx) + "px";
+    el.style.top = (rect.top + vy) + "px";
+  },20);
+  el.addEventListener("mouseenter", ()=> el.style.transform = "scale(1.08)");
+  el.addEventListener("mouseleave", ()=> el.style.transform = "scale(1)");
+  el.addEventListener("click",(e)=>{
+    e.stopPropagation();
+    clearInterval(move);
+    const rect = el.getBoundingClientRect();
+    const popup = document.createElement("div");
+    popup.className = "popupPoints";
+    popup.style.left = (rect.left + rect.width/2) + "px";
+    popup.style.top = rect.top + "px";
+    popup.style.fontSize = "16px";
+    popup.innerText = "+15";
+    document.body.appendChild(popup);
+    popup.animate([{transform:"translateY(0)", opacity:1},{transform:"translateY(-60px)", opacity:0}], {duration:700,easing:"cubic-bezier(.2,.8,.2,1)"});
+    setTimeout(()=> popup.remove(),760);
+    el.animate([{transform:"scale(1.2)", opacity:1},{transform:"scale(0.2)", opacity:0}], {duration:300, fill:"forwards"});
+    setTimeout(()=> el.remove(),320);
+    score += 15;
+    scoreEl.innerText = score;
+    localStorage.setItem("rbid_minigame_score", score);
+    burstEffect(rect.left + rect.width/2, rect.top + rect.height/2);
+  });
+  setTimeout(()=>{ try{ if(el.parentElement) el.remove() }catch(e){} }, rand(7000,15000));
+}
+
+function burstEffect(x,y){
+  for(let i=0;i<10;i++){
+    const p = document.createElement("div");
+    p.className = "gameIcon";
+    p.style.width = "10px";
+    p.style.height = "12px";
+    p.style.left = x + "px";
+    p.style.top = y + "px";
+    p.style.borderRadius = "3px";
+    p.style.background = `hsl(${Math.floor(rand(0,360))},80%,60%)`;
+    p.style.boxShadow = "none";
+    p.style.pointerEvents = "none";
+    document.body.appendChild(p);
+    const angle = rand(0,Math.PI*2);
+    const dist = rand(40,120);
+    const tx = x + Math.cos(angle)*dist;
+    const ty = y + Math.sin(angle)*dist;
+    p.animate([{transform:"translate(0,0) rotate(0)", opacity:1},{transform:`translate(${tx-x}px,${ty-y}px) rotate(${rand(180,720)}deg)`, opacity:0}], {duration:900,easing:"cubic-bezier(.2,.8,.2,1)"});
+    setTimeout(()=> p.remove(),950);
+  }
+}
+
+let spawnInterval = null;
+let gameTimeout = null;
+
+function startGame(){
+  if(spawnInterval) return;
+  const rounds = 22;
+  let spawned = 0;
+  spawnInterval = setInterval(()=>{
+    if(spawned >= rounds){ clearInterval(spawnInterval); spawnInterval = null; return }
+    const icon = techIcons[Math.floor(Math.random()*techIcons.length)];
+    placeIcon(icon);
+    spawned++;
+  }, 600);
+  gameTimeout = setTimeout(()=>{ clearInterval(spawnInterval); spawnInterval = null }, 24000);
+}
+
+function stopGame() {
+  if (spawnInterval) clearInterval(spawnInterval);
+  if (gameTimeout) clearTimeout(gameTimeout);
+  spawnInterval = null;
+  gameTimeout = null;
+  document.querySelectorAll(".gameIcon").forEach(icon => icon.remove());
+  playBadge.style.color = "#0d6efd"; // blue
+}
+
+const playBadge = document.getElementById("playBadge");
+playBadge.addEventListener("click", () => {
+  if (spawnInterval) stopGame(); else startGame();
+});
+
+// ------------------ AI Chat ------------------
+const aiBody = document.getElementById("aiBody");
+const aiInput = document.getElementById("aiInput");
+const aiSend = document.getElementById("aiSend");
+const aiMin = document.getElementById("aiMin");
+
+// Append message
+function appendMessage(text, who, typing=false){
+  const div = document.createElement("div");
+  div.className = "ai-msg " + (who==="user" ? "user" : "bot");
+  aiBody.appendChild(div);
+  aiBody.scrollTop = aiBody.scrollHeight;
+
+  if(typing && who==="bot"){
+    // Typing animation
+    let i = 0;
+    const interval = setInterval(()=>{
+      div.innerText = text.slice(0,i++);
+      aiBody.scrollTop = aiBody.scrollHeight;
+      if(i > text.length) clearInterval(interval);
+    }, 20);
+  } else {
+    div.innerText = text;
+  }
+
+  // Add to chat history
+  chatHistory.push({role: who==="user" ? "user" : "assistant", content: text});
+}
+
+// Chat history
+let chatHistory = [];
+
+// Get system prompt
+async function getPrompt() {
+  try {
+    const response = await fetch('prompt.txt');
+    if(!response.ok) throw new Error('Failed to load prompt.txt');
+    return (await response.text()).trim();
+  } catch {
+    return "You are a helpful assistant answering based on Rene's portfolio only.";
+  }
+}
+
+// Call Node backend
+async function callGroq(userMessage){
+  const systemPrompt = await getPrompt();
+  try {
+    const res = await fetch("/api/groq", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ userMessage, chatHistory, systemPrompt })
+    });
+    if(!res.ok){
+      const err = await res.json();
+      appendMessage("Error: " + (err.error||res.status), "bot");
+      return null;
+    }
+    const data = await res.json();
+    return data.reply;
+  } catch(e){
+    appendMessage("Network error contacting AI.", "bot");
+    return null;
+  }
+}
+
+// Send message
+aiSend.addEventListener("click", async ()=>{
+  const q = aiInput.value.trim();
+  if(!q) return;
+  appendMessage(q,"user");
+  aiInput.value = "";
+  appendMessage("Typing...","bot",true); // temporary typing
+  const ans = await callGroq(q);
+  const bots = aiBody.querySelectorAll(".ai-msg.bot");
+  if(bots.length) bots[bots.length-1].remove(); // remove "Typing..."
+  appendMessage(ans ?? "No response.","bot",true);
+});
+
+aiInput.addEventListener("keydown", e => { if(e.key==="Enter") aiSend.click(); });
+
+// AI Minimize
+aiMin.addEventListener("click", ()=>{
+  const body = document.getElementById("aiBody");
+  const footer = document.querySelector(".ai-footer");
+  if(body.style.display==="none"){
+    body.style.display="flex"; footer.style.display="flex"; aiMin.innerHTML='<i class="fas fa-chevron-down"></i>';
+  } else {
+    body.style.display="none"; footer.style.display="none"; aiMin.innerHTML='<i class="fas fa-chevron-up"></i>';
+  }
+});
+
+document.addEventListener("visibilitychange", ()=>{ if(document.hidden) localStorage.setItem("rbid_minigame_score", score); });

@@ -19,10 +19,24 @@
   .output { background-color: #C0FFC0; }
   .view { background-color: #FFB6C1; }
   .item button { font-size: 0.8rem; }
+  .node-content {
+    flex: 1;
+  }
+  .delete-node {
+    padding: 0 6px;
+    cursor: pointer;
+    font-weight: bold;
+    margin-left: 5px;
+    position: absolute;
+    right: 0px;
+    top: -12px;
+    font-size: 18px;
+    color: rgb(195, 30, 30);
+  }
 </style>
 </head>
 <body class="p-4">
-<a href="index.html" class="btn btn-primary">Return to Portfolio</a>
+
 <h2 class="mb-3">Diagram to Code Generator</h2>
 
 <div class="row">
@@ -71,7 +85,227 @@
 </div>
 
 <script>
-function _0x4e97(){const _0x2a1b39=['Function','application/json','nosqlType','\x22>\x0a\x20\x20\x20\x20\x20\x20<label\x20class=\x22form-label\x22>Values:</label>\x0a\x20\x20\x20\x20\x20\x20<div\x20id=\x22valuesContainer\x22></div>\x0a\x20\x20\x20\x20\x20\x20<button\x20class=\x22btn\x20btn-sm\x20btn-outline-primary\x20mb-2\x22\x20type=\x22button\x22\x20onclick=\x22addValue()\x22>Add\x20Value</button>\x0a\x20\x20\x20\x20</div>','>NoSQL</option>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<option\x20value=\x22Internal\x22\x20','pointer','Datasource(SQL:\x20','sqlFields','nodeModal','tableName','View','red','funcName','push','#5c96bc','239263DOprpu','dataset','templateName','2waIXhc','Field\x20Name','content','innerText','type','value','connect','status','makeSource','add','click','createElement','placeholder','position','Internal','>SQL</option>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<option\x20value=\x22NoSQL\x22\x20','btn\x20btn-sm\x20btn-danger\x20ms-1','dsType','json','format','<div\x20id=\x22sqlFields\x22\x20style=\x22display:','lang','🗑️','classList','\x22>\x0a\x20\x20\x20\x20\x20\x20<div\x20id=\x22fieldsContainer\x22></div>\x0a\x20\x20\x20\x20\x20\x20<button\x20class=\x22btn\x20btn-sm\x20btn-outline-primary\x20mb-2\x22\x20type=\x22button\x22\x20onclick=\x22addField()\x22>Add\x20Field</button>\x0a\x20\x20\x20\x20</div>','Value\x20(any\x20type)','user','3735WGFhvt','from','cursor','Datasource\x20rules:\x20Fetch\x20SQL/NoSQL\x20or\x20initialize\x20Internal\x20values\x0aFunction\x20rules:\x20Implement\x20as\x20per\x20node\x0aOutput\x20rules:\x20Format\x20output\x20and\x20include\x20status\x0aView\x20rules:\x20Render\x20HTML\x20template\x20with\x20variables\x20(only\x20if\x20view\x20is\x20selected\x20in\x20the\x20diagram)\x0aOther\x20notes:\x20ONE\x20full\x20code\x20snippet\x20with\x20comments','\x0aDiagram\x20connections\x20and\x20node\x20details:\x0a','filter','absolute','selected','innerHTML','show','stopPropagation','table','Output','You\x20are\x20an\x20expert\x20AI\x20that\x20generates\x20fully\x20working\x20code\x20with\x20comments.','querySelectorAll','2551332RaWhCx','Output(','10171320tlQxYZ','.item','mousedown','target','onclick','stringify','appendChild','item','85stjgpZ','toUpperCase','fields','button','NoSQL','template','top','SQL','<label\x20class=\x22form-label\x22>Datasource\x20Type:</label>\x0a\x20\x20\x20\x20\x20\x20<select\x20id=\x22dsType\x22\x20class=\x22form-select\x20mb-2\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<option\x20value=\x22\x22\x20','outputFormat','2148906daQJyC','View(','statusCode','Key\x20Name','<div\x20id=\x22nosqlFields\x22\x20style=\x22display:','parse','none','getInstance','div','dblclick','change','Continuous','Modal','hide','>Select\x20Option</option>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<option\x20value=\x22SQL\x22\x20','form-control','\x22>\x0a\x20\x20\x20\x20\x20\x20<div\x20id=\x22keysContainer\x22></div>\x0a\x20\x20\x20\x20\x20\x20<button\x20class=\x22btn\x20btn-sm\x20btn-outline-primary\x20mb-2\x22\x20type=\x22button\x22\x20onclick=\x22addKey()\x22>Add\x20Key</button>\x0a\x20\x20\x20\x20</div>','Datasource','map','3680HrYyKx','getAllConnections','<label\x20class=\x22form-label\x22>Output\x20Format:</label>\x0a\x20\x20\x20\x20\x20\x20<input\x20id=\x22outputFormat\x22\x20class=\x22form-control\x20mb-2\x22\x20placeholder=\x22Output\x20Format\x22\x20value=\x22','style','remove','keysContainer','borderColor','Datasource(','https://api.groq.com/openai/v1/chat/completions','datasource','internalFields','Datasource(Internal:\x20','d-flex\x20mb-1','POST','forEach','output','<label\x20class=\x22form-label\x22>Variables\x20to\x20Inject\x20(comma\x20separated):</label>\x0a\x20\x20\x20\x20\x20\x20<input\x20id=\x22injectVars\x22\x20class=\x22form-control\x22\x20placeholder=\x22Variables\x20to\x20Inject\x22\x20value=\x22','block','makeTarget','input','fieldsContainer','targetId','display','view','random','>Internal</option>\x0a\x20\x20\x20\x20\x20\x20</select>','values','transparent','function','canvas','Bearer\x20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','Flowchart','81918GErxur','getElementById','12696TcbVPb','valuesContainer','2px','injectVars','.item\x20button','addEventListener','keys','message','className'];_0x4e97=function(){return _0x2a1b39;};return _0x4e97();}const _0x120829=_0x35a9;function _0x35a9(_0x1d522e,_0x5cdd47){const _0x4e975f=_0x4e97();return _0x35a9=function(_0x35a96c,_0x3d675d){_0x35a96c=_0x35a96c-0x1d2;let _0x4a69af=_0x4e975f[_0x35a96c];return _0x4a69af;},_0x35a9(_0x1d522e,_0x5cdd47);}(function(_0x2d7556,_0x4e8f90){const _0x262593=_0x35a9,_0x29eb4f=_0x2d7556();while(!![]){try{const _0x2b6801=-parseInt(_0x262593(0x22e))/0x1*(parseInt(_0x262593(0x231))/0x2)+parseInt(_0x262593(0x214))/0x3+parseInt(_0x262593(0x216))/0x4*(-parseInt(_0x262593(0x1d7))/0x5)+-parseInt(_0x262593(0x1e1))/0x6+-parseInt(_0x262593(0x25b))/0x7+parseInt(_0x262593(0x1f4))/0x8*(parseInt(_0x262593(0x24c))/0x9)+parseInt(_0x262593(0x25d))/0xa;if(_0x2b6801===_0x4e8f90)break;else _0x29eb4f['push'](_0x29eb4f['shift']());}catch(_0x33665b){_0x29eb4f['push'](_0x29eb4f['shift']());}}}(_0x4e97,0x35962));let idCounter=0x0,connectMode=![],sourceNode=null,currentNode=null;function addItem(_0x15700e){const _0x52743e=_0x35a9,_0x3c219c=document[_0x52743e(0x215)](_0x52743e(0x211)),_0x4e378e=_0x52743e(0x1d6)+idCounter++,_0x421469=document[_0x52743e(0x23c)](_0x52743e(0x1e9));_0x421469[_0x52743e(0x248)]['add'](_0x52743e(0x1d6)),_0x421469['id']=_0x4e378e,_0x421469[_0x52743e(0x22f)][_0x52743e(0x235)]=_0x15700e,_0x421469['innerText']=_0x15700e;if(_0x15700e===_0x52743e(0x1f2))_0x421469[_0x52743e(0x248)][_0x52743e(0x23a)](_0x52743e(0x1fd));else{if(_0x15700e==='Function')_0x421469[_0x52743e(0x248)][_0x52743e(0x23a)](_0x52743e(0x210));else{if(_0x15700e===_0x52743e(0x258))_0x421469[_0x52743e(0x248)]['add'](_0x52743e(0x203));else{if(_0x15700e==='View')_0x421469[_0x52743e(0x248)][_0x52743e(0x23a)](_0x52743e(0x20b));}}}_0x421469[_0x52743e(0x1f7)]['left']=Math[_0x52743e(0x20c)]()*0x190+'px',_0x421469[_0x52743e(0x1f7)][_0x52743e(0x1dd)]=Math[_0x52743e(0x20c)]()*0x12c+'px',_0x421469[_0x52743e(0x21b)](_0x52743e(0x1ea),()=>configureNode(_0x421469)),_0x421469[_0x52743e(0x21b)](_0x52743e(0x25f),()=>showDeleteButton(_0x421469)),_0x3c219c[_0x52743e(0x1d5)](_0x421469),jsPlumb['draggable'](_0x421469,{'containment':'parent'}),jsPlumb[_0x52743e(0x239)](_0x421469,{'filter':_0x52743e(0x25e),'anchor':_0x52743e(0x1ec),'connector':[_0x52743e(0x213),{'cornerRadius':0x5}],'connectorStyle':{'stroke':_0x52743e(0x22d),'strokeWidth':0x2}}),jsPlumb[_0x52743e(0x206)](_0x421469,{'dropOptions':{'hoverClass':'dragHover'},'anchor':_0x52743e(0x1ec)});}function showDeleteButton(_0x53021f){const _0x3e47d1=_0x35a9;removeDeleteButtons();const _0x3fa1fe=document[_0x3e47d1(0x23c)](_0x3e47d1(0x1da));_0x3fa1fe[_0x3e47d1(0x234)]=_0x3e47d1(0x247),_0x3fa1fe[_0x3e47d1(0x1f7)][_0x3e47d1(0x23e)]=_0x3e47d1(0x252),_0x3fa1fe['style'][_0x3e47d1(0x1dd)]='2px',_0x3fa1fe[_0x3e47d1(0x1f7)]['right']=_0x3e47d1(0x218),_0x3fa1fe[_0x3e47d1(0x1f7)]['border']=_0x3e47d1(0x1e7),_0x3fa1fe[_0x3e47d1(0x1f7)]['background']=_0x3e47d1(0x20f),_0x3fa1fe[_0x3e47d1(0x1f7)][_0x3e47d1(0x24e)]=_0x3e47d1(0x224),_0x3fa1fe[_0x3e47d1(0x1d3)]=function(_0x12c5ab){const _0x354a4b=_0x3e47d1;_0x12c5ab[_0x354a4b(0x256)](),deleteNode(_0x53021f['id']);},_0x53021f[_0x3e47d1(0x1d5)](_0x3fa1fe);}function removeDeleteButtons(){const _0x517e28=_0x35a9;document[_0x517e28(0x25a)](_0x517e28(0x21a))['forEach'](_0x39760e=>_0x39760e['remove']());}function deleteNode(_0x4f3974){const _0x29cee9=_0x35a9,_0x43ab83=document[_0x29cee9(0x215)](_0x4f3974);if(!_0x43ab83)return;jsPlumb[_0x29cee9(0x1f8)](_0x43ab83),_0x43ab83[_0x29cee9(0x1f8)]();}function configureNode(_0x29762b){const _0x142e48=_0x35a9;currentNode=_0x29762b;const _0x275f05=_0x29762b['dataset'][_0x142e48(0x235)];let _0x152de9='';if(_0x275f05==='Datasource')_0x152de9+=_0x142e48(0x1df)+(_0x29762b['dataset'][_0x142e48(0x242)]===''?_0x142e48(0x253):'')+_0x142e48(0x1ef)+(_0x29762b[_0x142e48(0x22f)][_0x142e48(0x242)]==='SQL'?_0x142e48(0x253):'')+_0x142e48(0x240)+(_0x29762b['dataset'][_0x142e48(0x242)]===_0x142e48(0x1db)?_0x142e48(0x253):'')+_0x142e48(0x223)+(_0x29762b['dataset']['dsType']==='Internal'?_0x142e48(0x253):'')+_0x142e48(0x20d),_0x152de9+=_0x142e48(0x245)+(_0x29762b[_0x142e48(0x22f)][_0x142e48(0x242)]===_0x142e48(0x1de)?_0x142e48(0x205):_0x142e48(0x1e7))+'\x22>\x0a\x20\x20\x20\x20\x20\x20<label\x20class=\x22form-label\x22>Table\x20Name:</label>\x0a\x20\x20\x20\x20\x20\x20<input\x20id=\x22tableName\x22\x20class=\x22form-control\x20mb-2\x22\x20placeholder=\x22Table\x20Name\x22\x20value=\x22'+(_0x29762b[_0x142e48(0x22f)][_0x142e48(0x257)]||'')+_0x142e48(0x249),_0x152de9+=_0x142e48(0x1e5)+(_0x29762b[_0x142e48(0x22f)][_0x142e48(0x242)]===_0x142e48(0x1db)?_0x142e48(0x205):_0x142e48(0x1e7))+'\x22>\x0a\x20\x20\x20\x20\x20\x20<label\x20class=\x22form-label\x22>Datasource\x20Type\x20(NoSQL):</label>\x0a\x20\x20\x20\x20\x20\x20<input\x20id=\x22nosqlType\x22\x20class=\x22form-control\x20mb-2\x22\x20placeholder=\x22Datasource:\x20E.G\x20Redis,\x20DynamoDB\x20etc.\x22\x20value=\x22'+(_0x29762b['dataset'][_0x142e48(0x221)]||'')+_0x142e48(0x1f1),_0x152de9+='<div\x20id=\x22internalFields\x22\x20style=\x22display:'+(_0x29762b[_0x142e48(0x22f)][_0x142e48(0x242)]===_0x142e48(0x23f)?_0x142e48(0x205):_0x142e48(0x1e7))+_0x142e48(0x222);else{if(_0x275f05===_0x142e48(0x21f))_0x152de9+='<label\x20class=\x22form-label\x22>Function\x20Name:</label>\x0a\x20\x20\x20\x20\x20\x20<input\x20id=\x22funcName\x22\x20class=\x22form-control\x22\x20placeholder=\x22Function\x20Name\x22\x20value=\x22'+_0x29762b[_0x142e48(0x234)]+'\x22>';else{if(_0x275f05===_0x142e48(0x258))_0x152de9+=_0x142e48(0x1f6)+(_0x29762b[_0x142e48(0x22f)]['format']||'JSON')+'\x22>',_0x152de9+='<label\x20class=\x22form-label\x22>Status\x20Code:</label>\x0a\x20\x20\x20\x20\x20\x20<input\x20id=\x22statusCode\x22\x20class=\x22form-control\x22\x20placeholder=\x22Status\x20Code\x22\x20value=\x22'+(_0x29762b[_0x142e48(0x22f)][_0x142e48(0x238)]||'200')+'\x22>';else _0x275f05===_0x142e48(0x229)&&(_0x152de9+='<label\x20class=\x22form-label\x22>Template\x20Name\x20or\x20HTML\x20Snippet:</label>\x0a\x20\x20\x20\x20\x20\x20<input\x20id=\x22templateName\x22\x20class=\x22form-control\x20mb-2\x22\x20placeholder=\x22Template\x20Name\x20or\x20HTML\x20Snippet\x22\x20value=\x22'+(_0x29762b[_0x142e48(0x22f)][_0x142e48(0x1dc)]||'')+'\x22>',_0x152de9+=_0x142e48(0x204)+(_0x29762b[_0x142e48(0x22f)]['vars']||'')+'\x22>');}}document[_0x142e48(0x215)]('modalBody')[_0x142e48(0x254)]=_0x152de9;if(_0x275f05===_0x142e48(0x1f2)){if(_0x29762b[_0x142e48(0x22f)][_0x142e48(0x1d9)])JSON[_0x142e48(0x1e6)](_0x29762b['dataset'][_0x142e48(0x1d9)])[_0x142e48(0x202)](_0x53094d=>addField(_0x53094d));if(_0x29762b[_0x142e48(0x22f)][_0x142e48(0x21c)])JSON[_0x142e48(0x1e6)](_0x29762b[_0x142e48(0x22f)][_0x142e48(0x21c)])[_0x142e48(0x202)](_0x2466df=>addKey(_0x2466df));if(_0x29762b[_0x142e48(0x22f)][_0x142e48(0x20e)])JSON[_0x142e48(0x1e6)](_0x29762b[_0x142e48(0x22f)][_0x142e48(0x20e)])[_0x142e48(0x202)](_0x4b4aeb=>addValue(_0x4b4aeb));document[_0x142e48(0x215)](_0x142e48(0x242))[_0x142e48(0x21b)](_0x142e48(0x1eb),function(){const _0x36418c=_0x142e48;document[_0x36418c(0x215)](_0x36418c(0x226))[_0x36418c(0x1f7)][_0x36418c(0x20a)]=this[_0x36418c(0x236)]==='SQL'?'block':_0x36418c(0x1e7),document['getElementById']('nosqlFields')['style'][_0x36418c(0x20a)]=this[_0x36418c(0x236)]===_0x36418c(0x1db)?_0x36418c(0x205):'none',document[_0x36418c(0x215)](_0x36418c(0x1fe))['style'][_0x36418c(0x20a)]=this['value']==='Internal'?_0x36418c(0x205):_0x36418c(0x1e7);});}new bootstrap[(_0x142e48(0x1ed))](document[_0x142e48(0x215)](_0x142e48(0x227)))[_0x142e48(0x255)]();}function addField(_0x4e688c=''){const _0x4eb6a7=_0x35a9,_0x484e36=document['getElementById'](_0x4eb6a7(0x208)),_0x415ea8=document[_0x4eb6a7(0x23c)](_0x4eb6a7(0x1e9));_0x415ea8[_0x4eb6a7(0x21e)]='d-flex\x20mb-1';const _0x50592e=document[_0x4eb6a7(0x23c)](_0x4eb6a7(0x207));_0x50592e[_0x4eb6a7(0x21e)]='form-control',_0x50592e[_0x4eb6a7(0x23d)]=_0x4eb6a7(0x232),_0x50592e['value']=_0x4e688c;const _0x565b3a=document['createElement']('button');_0x565b3a[_0x4eb6a7(0x21e)]='btn\x20btn-sm\x20btn-danger\x20ms-1',_0x565b3a['innerText']='X',_0x565b3a['onclick']=()=>_0x415ea8[_0x4eb6a7(0x1f8)](),_0x415ea8[_0x4eb6a7(0x1d5)](_0x50592e),_0x415ea8[_0x4eb6a7(0x1d5)](_0x565b3a),_0x484e36[_0x4eb6a7(0x1d5)](_0x415ea8);}function addKey(_0x12fea2=''){const _0x57cb5c=_0x35a9,_0x1194a9=document['getElementById'](_0x57cb5c(0x1f9)),_0x42a407=document['createElement']('div');_0x42a407['className']=_0x57cb5c(0x200);const _0x540fa0=document[_0x57cb5c(0x23c)](_0x57cb5c(0x207));_0x540fa0[_0x57cb5c(0x21e)]=_0x57cb5c(0x1f0),_0x540fa0[_0x57cb5c(0x23d)]=_0x57cb5c(0x1e4),_0x540fa0[_0x57cb5c(0x236)]=_0x12fea2;const _0x57ab21=document[_0x57cb5c(0x23c)](_0x57cb5c(0x1da));_0x57ab21[_0x57cb5c(0x21e)]=_0x57cb5c(0x241),_0x57ab21[_0x57cb5c(0x234)]='X',_0x57ab21[_0x57cb5c(0x1d3)]=()=>_0x42a407[_0x57cb5c(0x1f8)](),_0x42a407[_0x57cb5c(0x1d5)](_0x540fa0),_0x42a407['appendChild'](_0x57ab21),_0x1194a9[_0x57cb5c(0x1d5)](_0x42a407);}function addValue(_0x166fcd=''){const _0x513541=_0x35a9,_0x13bc1b=document[_0x513541(0x215)]('valuesContainer'),_0x568482=document[_0x513541(0x23c)]('div');_0x568482[_0x513541(0x21e)]=_0x513541(0x200);const _0x37b8f9=document[_0x513541(0x23c)](_0x513541(0x207));_0x37b8f9[_0x513541(0x21e)]=_0x513541(0x1f0),_0x37b8f9[_0x513541(0x23d)]=_0x513541(0x24a),_0x37b8f9[_0x513541(0x236)]=_0x166fcd;const _0xa39d20=document['createElement'](_0x513541(0x1da));_0xa39d20[_0x513541(0x21e)]=_0x513541(0x241),_0xa39d20['innerText']='X',_0xa39d20['onclick']=()=>_0x568482[_0x513541(0x1f8)](),_0x568482['appendChild'](_0x37b8f9),_0x568482[_0x513541(0x1d5)](_0xa39d20),_0x13bc1b[_0x513541(0x1d5)](_0x568482);}function saveNodeConfig(){const _0xb2f87f=_0x35a9,_0xe778a7=currentNode[_0xb2f87f(0x22f)][_0xb2f87f(0x235)];if(_0xe778a7===_0xb2f87f(0x1f2)){currentNode[_0xb2f87f(0x22f)][_0xb2f87f(0x242)]=document[_0xb2f87f(0x215)]('dsType')[_0xb2f87f(0x236)];if(currentNode[_0xb2f87f(0x22f)][_0xb2f87f(0x242)]===_0xb2f87f(0x1de)){currentNode[_0xb2f87f(0x22f)][_0xb2f87f(0x257)]=document[_0xb2f87f(0x215)](_0xb2f87f(0x228))[_0xb2f87f(0x236)];const _0xdd1343=Array[_0xb2f87f(0x24d)](document[_0xb2f87f(0x215)]('fieldsContainer')[_0xb2f87f(0x25a)](_0xb2f87f(0x207)))[_0xb2f87f(0x1f3)](_0x19a7ee=>_0x19a7ee['value'])[_0xb2f87f(0x251)](_0x500a3d=>_0x500a3d);currentNode[_0xb2f87f(0x22f)][_0xb2f87f(0x1d9)]=JSON[_0xb2f87f(0x1d4)](_0xdd1343),currentNode[_0xb2f87f(0x234)]=_0xb2f87f(0x225)+currentNode[_0xb2f87f(0x22f)][_0xb2f87f(0x257)]+')';}else{if(currentNode[_0xb2f87f(0x22f)][_0xb2f87f(0x242)]===_0xb2f87f(0x1db)){currentNode[_0xb2f87f(0x22f)][_0xb2f87f(0x221)]=document[_0xb2f87f(0x215)](_0xb2f87f(0x221))[_0xb2f87f(0x236)];const _0xf16824=Array['from'](document[_0xb2f87f(0x215)]('keysContainer')['querySelectorAll']('input'))[_0xb2f87f(0x1f3)](_0x52dbc5=>_0x52dbc5[_0xb2f87f(0x236)])[_0xb2f87f(0x251)](_0x25843e=>_0x25843e);currentNode[_0xb2f87f(0x22f)][_0xb2f87f(0x21c)]=JSON['stringify'](_0xf16824),currentNode[_0xb2f87f(0x234)]=_0xb2f87f(0x1fb)+currentNode[_0xb2f87f(0x22f)]['nosqlType']+')';}else{const _0x47103c=Array['from'](document['getElementById'](_0xb2f87f(0x217))['querySelectorAll'](_0xb2f87f(0x207)))['map'](_0x378106=>_0x378106['value'])[_0xb2f87f(0x251)](_0x197209=>_0x197209);currentNode['dataset'][_0xb2f87f(0x20e)]=JSON['stringify'](_0x47103c),currentNode['innerText']=_0xb2f87f(0x1ff)+_0x47103c['join'](',\x20')+')';}}}else{if(_0xe778a7==='Function')currentNode['innerText']=document['getElementById'](_0xb2f87f(0x22b))[_0xb2f87f(0x236)];else{if(_0xe778a7===_0xb2f87f(0x258))currentNode[_0xb2f87f(0x22f)][_0xb2f87f(0x244)]=document[_0xb2f87f(0x215)](_0xb2f87f(0x1e0))['value'],currentNode['dataset'][_0xb2f87f(0x238)]=document['getElementById'](_0xb2f87f(0x1e3))['value'],currentNode[_0xb2f87f(0x234)]=_0xb2f87f(0x25c)+currentNode['dataset'][_0xb2f87f(0x244)]+',\x20'+currentNode['dataset'][_0xb2f87f(0x238)]+')';else _0xe778a7===_0xb2f87f(0x229)&&(currentNode[_0xb2f87f(0x22f)][_0xb2f87f(0x1dc)]=document[_0xb2f87f(0x215)](_0xb2f87f(0x230))['value'],currentNode[_0xb2f87f(0x22f)]['vars']=document[_0xb2f87f(0x215)](_0xb2f87f(0x219))[_0xb2f87f(0x236)],currentNode[_0xb2f87f(0x234)]=_0xb2f87f(0x1e2)+currentNode['dataset']['template']+')');}}bootstrap[_0xb2f87f(0x1ed)][_0xb2f87f(0x1e8)](document[_0xb2f87f(0x215)](_0xb2f87f(0x227)))[_0xb2f87f(0x1ee)]();}function startConnect(){alert('Click\x20source\x20node,\x20then\x20target\x20node.'),connectMode=!![];}document[_0x120829(0x215)](_0x120829(0x211))[_0x120829(0x21b)](_0x120829(0x23b),function(_0x17ddfd){const _0x116ad9=_0x120829;connectMode&&_0x17ddfd[_0x116ad9(0x1d2)][_0x116ad9(0x248)]['contains']('item')&&(!sourceNode?(sourceNode=_0x17ddfd['target'],sourceNode[_0x116ad9(0x1f7)][_0x116ad9(0x1fa)]=_0x116ad9(0x22a)):(jsPlumb[_0x116ad9(0x237)]({'source':sourceNode['id'],'target':_0x17ddfd[_0x116ad9(0x1d2)]['id'],'connector':[_0x116ad9(0x213),{'cornerRadius':0x5}],'anchors':[_0x116ad9(0x1ec),_0x116ad9(0x1ec)],'paintStyle':{'stroke':_0x116ad9(0x22d),'strokeWidth':0x2}}),sourceNode[_0x116ad9(0x1f7)][_0x116ad9(0x1fa)]='#333',sourceNode=null,connectMode=![]));});async function generateCode(){const _0x3ebd0a=_0x120829,_0x299b77=document[_0x3ebd0a(0x215)](_0x3ebd0a(0x246))[_0x3ebd0a(0x236)],_0x17beff=jsPlumb[_0x3ebd0a(0x1f5)](),_0x38c204=[];_0x17beff[_0x3ebd0a(0x202)](_0x1bd06d=>{const _0x170f23=_0x3ebd0a,_0x1d236d=document[_0x170f23(0x215)](_0x1bd06d['sourceId']),_0x583c02=document[_0x170f23(0x215)](_0x1bd06d[_0x170f23(0x209)]);_0x38c204[_0x170f23(0x22c)]({'from':_0x1d236d[_0x170f23(0x234)],'fromType':_0x1d236d[_0x170f23(0x22f)][_0x170f23(0x235)],'to':_0x583c02[_0x170f23(0x234)],'toType':_0x583c02['dataset']['type'],'dsType':_0x1d236d[_0x170f23(0x22f)][_0x170f23(0x242)]||'','table':_0x1d236d[_0x170f23(0x22f)][_0x170f23(0x257)]||'','fields':_0x1d236d[_0x170f23(0x22f)][_0x170f23(0x1d9)]?JSON[_0x170f23(0x1e6)](_0x1d236d[_0x170f23(0x22f)][_0x170f23(0x1d9)]):[],'nosqlType':_0x1d236d[_0x170f23(0x22f)][_0x170f23(0x221)]||'','keys':_0x1d236d['dataset'][_0x170f23(0x21c)]?JSON[_0x170f23(0x1e6)](_0x1d236d[_0x170f23(0x22f)]['keys']):[],'internalValues':_0x1d236d[_0x170f23(0x22f)][_0x170f23(0x20e)]?JSON['parse'](_0x1d236d[_0x170f23(0x22f)][_0x170f23(0x20e)]):[],'outputFormat':_0x583c02[_0x170f23(0x22f)][_0x170f23(0x244)]||'','status':_0x583c02[_0x170f23(0x22f)][_0x170f23(0x238)]||'','template':_0x1d236d['dataset']['template']||'','vars':_0x1d236d[_0x170f23(0x22f)]['vars']||''});});const _0x590d49=_0x3ebd0a(0x24f),_0x25206d='Show\x20full\x20code\x20only\x20and\x20provide\x20the\x20best\x20solution\x20based\x20on\x20programming\x20standard:\x20Generate\x20a\x20single\x20fully\x20working\x20'+_0x299b77[_0x3ebd0a(0x1d8)]()+'\x20code\x20snippet\x20from\x20the\x20diagram.\x0aFollow\x20these\x20rules:\x0a'+_0x590d49+_0x3ebd0a(0x250)+JSON[_0x3ebd0a(0x1d4)](_0x38c204,null,0x2),_0x102c12=await fetch(_0x3ebd0a(0x1fc),{'method':_0x3ebd0a(0x201),'headers':{'Content-Type':_0x3ebd0a(0x220),'Authorization':_0x3ebd0a(0x212)},'body':JSON[_0x3ebd0a(0x1d4)]({'model':'llama-3.1-8b-instant','messages':[{'role':'system','content':_0x3ebd0a(0x259)},{'role':_0x3ebd0a(0x24b),'content':_0x25206d}],'max_tokens':0x4b0,'temperature':0.2})}),_0x191344=await _0x102c12[_0x3ebd0a(0x243)](),_0x41e598=_0x191344['choices']?.[0x0]?.[_0x3ebd0a(0x21d)]?.[_0x3ebd0a(0x233)]||'Error\x20generating\x20code';document['getElementById'](_0x3ebd0a(0x203))['value']=_0x41e598;}
+let idCounter = 0;
+let connectMode = false;
+let sourceNode = null;
+let currentNode = null;
+
+// Add Node
+function addItem(type){
+  const canvas = document.getElementById('canvas');
+  const id = 'item'+idCounter++;
+  const div = document.createElement('div');
+  div.classList.add('item');
+  div.id = id;
+  div.dataset.type = type;
+  div.innerText = type; // placeholder
+
+  if(type==='Datasource') div.classList.add('datasource');
+  else if(type==='Function') div.classList.add('function');
+  else if(type==='Output') div.classList.add('output');
+  else if(type==='View') div.classList.add('view');
+
+  div.style.left = Math.random()*400+'px';
+  div.style.top = Math.random()*300+'px';
+
+  div.addEventListener('dblclick', ()=>configureNode(div));
+
+  // Delete button
+  const delBtn = document.createElement('span');
+  delBtn.innerHTML = '&times;'; // × symbol
+  delBtn.className = 'delete-node';
+  delBtn.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    deleteNode(id);
+  });
+
+  // Active indicator
+  div.addEventListener('click', ()=>{
+    document.querySelectorAll('.item').forEach(n=>n.classList.remove('active'));
+    div.classList.add('active');
+    currentNode = div;
+  });
+
+  div.appendChild(delBtn);
+  canvas.appendChild(div);
+
+  jsPlumb.draggable(div, {containment:'parent'});
+  jsPlumb.makeSource(div,{
+    filter:".item", anchor:"Continuous", connector:["Flowchart",{cornerRadius:5}],
+    connectorStyle:{stroke:"#5c96bc", strokeWidth:2}
+  });
+  jsPlumb.makeTarget(div,{
+    dropOptions:{hoverClass:"dragHover"}, anchor:"Continuous"
+  });
+}
+
+// Delete Node
+function deleteNode(nodeId){
+  const node = document.getElementById(nodeId);
+  if(!node) return;
+
+  // Remove all connections related to this node
+  jsPlumb.deleteConnectionsForElement(node);
+
+  // Remove node
+  jsPlumb.remove(nodeId);
+  node.remove();
+}
+
+// Configure Node Modal
+function configureNode(div){
+  currentNode = div;
+  const type = div.dataset.type;
+  let html = '';
+
+  if(type==='Datasource'){
+    html += `<label class="form-label">Datasource Type:</label>
+      <select id="dsType" class="form-select mb-2">
+        <option value="" ${div.dataset.dsType===''?'selected':''}>Select Option</option>
+        <option value="SQL" ${div.dataset.dsType==='SQL'?'selected':''}>SQL</option>
+        <option value="NoSQL" ${div.dataset.dsType==='NoSQL'?'selected':''}>NoSQL</option>
+        <option value="Internal" ${div.dataset.dsType==='Internal'?'selected':''}>Internal</option>
+      </select>`;
+    html += `<div id="sqlFields" style="display:${div.dataset.dsType==='SQL'?'block':'none'}">
+      <label class="form-label">Table Name:</label>
+      <input id="tableName" class="form-control mb-2" placeholder="Table Name" value="${div.dataset.table||''}">
+      <div id="fieldsContainer"></div>
+      <button class="btn btn-sm btn-outline-primary mb-2" type="button" onclick="addField()">Add Field</button>
+    </div>`;
+    html += `<div id="nosqlFields" style="display:${div.dataset.dsType==='NoSQL'?'block':'none'}">
+      <label class="form-label">Datasource Type (NoSQL):</label>
+      <input id="nosqlType" class="form-control mb-2" placeholder="Datasource: E.G Redis, DynamoDB etc." value="${div.dataset.nosqlType||''}">
+      <div id="keysContainer"></div>
+      <button class="btn btn-sm btn-outline-primary mb-2" type="button" onclick="addKey()">Add Key</button>
+    </div>`;
+    html += `<div id="internalFields" style="display:${div.dataset.dsType==='Internal'?'block':'none'}">
+      <label class="form-label">Values:</label>
+      <div id="valuesContainer"></div>
+      <button class="btn btn-sm btn-outline-primary mb-2" type="button" onclick="addValue()">Add Value</button>
+    </div>`;
+  } else if(type==='Function'){
+    html += `<label class="form-label">Function Name:</label>
+      <input id="funcName" class="form-control" placeholder="Function Name" value="${div.innerText}">`;
+  } else if(type==='Output'){
+    html += `<label class="form-label">Output Format:</label>
+      <input id="outputFormat" class="form-control mb-2" placeholder="Output Format" value="${div.dataset.format||'JSON'}">`;
+    html += `<label class="form-label">Status Code:</label>
+      <input id="statusCode" class="form-control" placeholder="Status Code" value="${div.dataset.status||'200'}">`;
+  } else if(type==='View'){
+    html += `<label class="form-label">Template Name or HTML Snippet:</label>
+      <input id="templateName" class="form-control mb-2" placeholder="Template Name or HTML Snippet" value="${div.dataset.template||''}">`;
+    html += `<label class="form-label">Variables to Inject (comma separated):</label>
+      <input id="injectVars" class="form-control" placeholder="Variables to Inject" value="${div.dataset.vars||''}">`;
+  }
+
+  document.getElementById('modalBody').innerHTML = html;
+
+  // Populate existing fields/keys/values
+  if(type==='Datasource'){
+    if(div.dataset.fields) JSON.parse(div.dataset.fields).forEach(f=>addField(f));
+    if(div.dataset.keys) JSON.parse(div.dataset.keys).forEach(k=>addKey(k));
+    if(div.dataset.values) JSON.parse(div.dataset.values).forEach(v=>addValue(v));
+
+    document.getElementById('dsType').addEventListener('change', function(){
+      document.getElementById('sqlFields').style.display = this.value==='SQL'?'block':'none';
+      document.getElementById('nosqlFields').style.display = this.value==='NoSQL'?'block':'none';
+      document.getElementById('internalFields').style.display = this.value==='Internal'?'block':'none';
+    });
+  }
+
+  new bootstrap.Modal(document.getElementById('nodeModal')).show();
+}
+
+// Add Field/Key/Value helpers
+function addField(val=''){ const c=document.getElementById('fieldsContainer'); const w=document.createElement('div'); w.className='d-flex mb-1'; const i=document.createElement('input'); i.className='form-control'; i.placeholder='Field Name'; i.value=val; const d=document.createElement('button'); d.className='btn btn-sm btn-danger ms-1'; d.innerText='X'; d.onclick=()=>w.remove(); w.appendChild(i); w.appendChild(d); c.appendChild(w); }
+function addKey(val=''){ const c=document.getElementById('keysContainer'); const w=document.createElement('div'); w.className='d-flex mb-1'; const i=document.createElement('input'); i.className='form-control'; i.placeholder='Key Name'; i.value=val; const d=document.createElement('button'); d.className='btn btn-sm btn-danger ms-1'; d.innerText='X'; d.onclick=()=>w.remove(); w.appendChild(i); w.appendChild(d); c.appendChild(w); }
+function addValue(val=''){ const c=document.getElementById('valuesContainer'); const w=document.createElement('div'); w.className='d-flex mb-1'; const i=document.createElement('input'); i.className='form-control'; i.placeholder='Value (any type)'; i.value=val; const d=document.createElement('button'); d.className='btn btn-sm btn-danger ms-1'; d.innerText='X'; d.onclick=()=>w.remove(); w.appendChild(i); w.appendChild(d); c.appendChild(w); }
+
+// Save Node
+function saveNodeConfig(){
+  const type=currentNode.dataset.type;
+  if(type==='Datasource'){
+    currentNode.dataset.dsType=document.getElementById('dsType').value;
+    if(currentNode.dataset.dsType==='SQL'){
+      currentNode.dataset.table=document.getElementById('tableName').value;
+      const fields=Array.from(document.getElementById('fieldsContainer').querySelectorAll('input')).map(i=>i.value).filter(f=>f);
+      currentNode.dataset.fields=JSON.stringify(fields);
+      currentNode.innerText=`Datasource(SQL: ${currentNode.dataset.table})`;
+    } else if(currentNode.dataset.dsType==='NoSQL'){
+      currentNode.dataset.nosqlType=document.getElementById('nosqlType').value;
+      const keys=Array.from(document.getElementById('keysContainer').querySelectorAll('input')).map(i=>i.value).filter(k=>k);
+      currentNode.dataset.keys=JSON.stringify(keys);
+      currentNode.innerText=`Datasource(${currentNode.dataset.nosqlType})`;
+    } else {
+      const values=Array.from(document.getElementById('valuesContainer').querySelectorAll('input')).map(i=>i.value).filter(v=>v);
+      currentNode.dataset.values=JSON.stringify(values);
+      currentNode.innerText=`Datasource(Internal: ${values.join(', ')})`;
+    }
+  } else if(type==='Function'){ currentNode.innerText=document.getElementById('funcName').value; }
+  else if(type==='Output'){ currentNode.dataset.format=document.getElementById('outputFormat').value; currentNode.dataset.status=document.getElementById('statusCode').value; currentNode.innerText=`Output(${currentNode.dataset.format}, ${currentNode.dataset.status})`; }
+  else if(type==='View'){ currentNode.dataset.template=document.getElementById('templateName').value; currentNode.dataset.vars=document.getElementById('injectVars').value; currentNode.innerText=`View(${currentNode.dataset.template})`; }
+
+  bootstrap.Modal.getInstance(document.getElementById('nodeModal')).hide();
+}
+
+// Connect Nodes
+function startConnect(){ alert('Click source node, then target node.'); connectMode=true; }
+document.getElementById('canvas').addEventListener('click', function(e){
+  if(connectMode && e.target.classList.contains('item')){
+    if(!sourceNode){ sourceNode=e.target; sourceNode.style.borderColor='red'; }
+    else{
+      jsPlumb.connect({ source:sourceNode.id,target:e.target.id,connector:["Flowchart",{cornerRadius:5}],anchors:["Continuous","Continuous"],paintStyle:{stroke:"#5c96bc",strokeWidth:2} });
+      sourceNode.style.borderColor='#333'; sourceNode=null; connectMode=false;
+    }
+  }
+});
+
+// Generate Code (Groq AI)
+async function generateCode(){
+  const lang=document.getElementById('lang').value;
+  const connections=jsPlumb.getAllConnections();
+  const diagramData=[];
+  connections.forEach(conn=>{
+    const source=document.getElementById(conn.sourceId);
+    const target=document.getElementById(conn.targetId);
+    diagramData.push({
+      from:source.innerText, fromType:source.dataset.type,
+      to:target.innerText, toType:target.dataset.type,
+      dsType:source.dataset.dsType||'',
+      table:source.dataset.table||'',
+      fields:source.dataset.fields?JSON.parse(source.dataset.fields):[],
+      nosqlType:source.dataset.nosqlType||'',
+      keys:source.dataset.keys?JSON.parse(source.dataset.keys):[],
+      internalValues:source.dataset.values?JSON.parse(source.dataset.values):[],
+      outputFormat:target.dataset.format||'', status:target.dataset.status||'',
+      template:source.dataset.template||'', vars:source.dataset.vars||''
+    });
+  });
+
+  const rulesText=`Datasource rules: Fetch SQL/NoSQL or initialize Internal values
+Function rules: Implement as per node
+Output rules: Format output and include status
+View rules: Render HTML template with variables (only if view is selected in the diagram)
+Other notes: ONE full code snippet with comments`;
+
+  const prompt=`Show full code only and provide the best solution based on programming standard: Generate a single fully working ${lang.toUpperCase()} code snippet from the diagram.
+Follow these rules:
+${rulesText}
+Diagram connections and node details:
+${JSON.stringify(diagramData,null,2)}`;
+
+  const response = await fetch('/api/generate-code', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ instructions: prompt })
+  });
+
+  const data = await response.json();
+  const code = data.code || 'Error generating code';
+  document.getElementById('output').value = code;
+}
 </script>
 
 </body>

@@ -88,17 +88,37 @@ function burstEffect(x,y){
 let spawnInterval = null;
 let gameTimeout = null;
 
-function startGame(){
-  if(spawnInterval) return;
+// Hide score counter on page load
+const scoreCounter = document.getElementById('scoreCounter');
+if (scoreCounter) scoreCounter.style.display = 'none';
+
+function startGame() {
+  if (spawnInterval) return;
+
   const rounds = 22;
   let spawned = 0;
-  spawnInterval = setInterval(()=>{
-    if(spawned >= rounds){ clearInterval(spawnInterval); spawnInterval = null; return }
-    const icon = techIcons[Math.floor(Math.random()*techIcons.length)];
-    placeIcon(icon);
+
+  spawnInterval = setInterval(() => {
+    if (spawned >= rounds) {
+      clearInterval(spawnInterval);
+      spawnInterval = null;
+      return;
+    }
+
+    const icon = techIcons[Math.floor(Math.random() * techIcons.length)];
+    placeIcon(icon); // your existing function
     spawned++;
   }, 600);
-  gameTimeout = setTimeout(()=>{ clearInterval(spawnInterval); spawnInterval = null }, 24000);
+
+  gameTimeout = setTimeout(() => {
+    clearInterval(spawnInterval);
+    spawnInterval = null;
+  }, 24000);
+
+  if (scoreCounter) scoreCounter.style.display = 'block';
+
+  // Indicate game is running
+  document.querySelectorAll('.playBadge').forEach(btn => btn.style.color = 'red');
 }
 
 function stopGame() {
@@ -106,14 +126,24 @@ function stopGame() {
   if (gameTimeout) clearTimeout(gameTimeout);
   spawnInterval = null;
   gameTimeout = null;
-  document.querySelectorAll(".gameIcon").forEach(icon => icon.remove());
-  playBadge.style.color = "#0d6efd"; // blue
+
+  // Remove all game icons
+  document.querySelectorAll('.gameIcon').forEach(icon => icon.remove());
+
+  // Reset play button color
+  document.querySelectorAll('.playBadge').forEach(btn => btn.style.color = '#0d6efd'); // blue
+
+  if (scoreCounter) scoreCounter.style.display = 'none';
 }
 
-const playBadge = document.getElementById("playBadge");
-playBadge.addEventListener("click", () => {
-  if (spawnInterval) stopGame(); else startGame();
+// Attach click events to all play buttons
+document.querySelectorAll('.playBadge').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (spawnInterval) stopGame();
+    else startGame();
+  });
 });
+
 
 // ------------------ AI Chat ------------------
 const aiBody = document.getElementById("aiBody");

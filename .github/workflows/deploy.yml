@@ -1,0 +1,26 @@
+name: 🚀 Auto Deploy to AWS
+
+on:
+  push:
+    branches:
+      - prod_v2   # 👈 only triggers when pushing to main (change if needed)
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Add SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H your-server-ip >> ~/.ssh/known_hosts
+
+      - name: Pull latest code on AWS
+        run: |
+          ssh -i ~/.ssh/id_rsa ubuntu@your-server-ip \
+            "cd /var/www/yourapp && git fetch origin main && git reset --hard origin/main"

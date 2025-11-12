@@ -49,7 +49,6 @@ h1,h2,h3,h4,h5{font-family:'Poppins',sans-serif;color:#f9f9f9;}
 .ai-msg.bot{margin-right:auto;
   backdrop-filter: blur(12px);
   background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
   border-bottom-left-radius:2px}
 @media(max-width:768px){.sidebar{display:none} .cv-btn{right:12px} #aiWidget{right:12px;left:12px;width:auto;bottom:110px}}

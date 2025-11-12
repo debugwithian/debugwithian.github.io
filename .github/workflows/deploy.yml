@@ -23,7 +23,7 @@ jobs:
       - name: Deploy and restart app on AWS
         run: |
           ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "
-            cd /var/www/yourapp &&
+            cd /home/ubuntu &&
             git fetch origin prod_v2 &&
             git reset --hard origin/prod_v2 &&
             npm install &&

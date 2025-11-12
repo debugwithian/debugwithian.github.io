@@ -1,6 +1,6 @@
 :root{--primary:#0d6efd;--soft1:#f7f9fb;--soft2:#eaf1f7}
 html,body{height:100%; font-family:'Poppins',sans-serif!important;}
-body{font-family:'Poppins',sans-serif;background: url('bg4.png');color:#f9f9f9;overflow-x:hidden; background-size: 100% 100%; background-attachment: fixed;}
+body{text-shadow: 0 0 3px rgba(0, 0, 0, 0.4); font-family:'Poppins',sans-serif;background: url('bg4.png');color:#f9f9f9;overflow-x:hidden; background-size: 100% 100%; background-attachment: fixed;}
 h1,h2,h3,h4,h5{font-family:'Poppins',sans-serif;color:#f9f9f9;}
 .section-title::after{content:'';display:block;width:60px;height:3px;background-color:#fff;margin-top:0.5rem;border-radius:2px}
 .card-hover{transition:all 0.3s ease}

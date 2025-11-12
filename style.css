@@ -44,6 +44,7 @@ box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
 color:#fff;border-bottom-right-radius:2px}
 .ai-msg.bot{margin-right:auto;
 background: rgba(255, 255, 255, 0.07);
+border: 1px solid rgba(255, 255, 255, 0.15);
 box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
 border-bottom-left-radius:2px}
 @media(max-width:768px){.sidebar{display:none} .cv-btn{right:12px} #aiWidget{right:12px;left:12px;width:auto;bottom:110px}}
@@ -419,4 +420,10 @@ border-radius: 30px;
 /* Ensure the active border is pure white for highest contrast */
 border-bottom: 2px solid rgba(255, 255, 255, 0.28); 
 font-weight: 600; 
+}
+
+
+#about .card h5 {
+border-bottom: 1px solid #fff;
+padding-bottom: 10px;
 }

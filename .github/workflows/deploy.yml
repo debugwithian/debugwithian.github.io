@@ -157,7 +157,7 @@ jobs:
             git fetch origin prod_v2 &&
             git reset --hard origin/prod_v2 &&
             npm install &&
-            pm2 restart my-app &&
+            pm2 restart all &&
             echo 'Deployment completed successfully'
           "
 

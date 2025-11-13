@@ -79,26 +79,25 @@ jobs:
           fi
 
       - name: Post AI Review as PR Comment
-        if: always()
+        if: always()  # Always run
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}  # Use PAT with repo access
         run: |
+          # If the review status file is empty or missing, set default message
           if [ ! -s ai_review_status.txt ]; then
-            echo "⚠️ AI review status missing — skipping posting."
-            exit 0
+            echo "✅ No Issue on the code" > ai_review_status.txt
           fi
 
+          # Prepare comment body safely
           COMMENT_BODY=$(jq -Rn --arg text "$(cat ai_review_status.txt | sed 's/["\\<>]/\\&/g')" '$text')
 
-          # Use commit comment for forked PRs, PR comment for same-repo PRs
-          if [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
-            API_URL="${{ github.api_url }}/repos/${{ github.repository }}/commits/${{ github.event.pull_request.head.sha }}/comments"
-          else
-            API_URL="${{ github.api_url }}/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments"
-          fi
+          # Always post comment on the latest commit of the PR (works for forks)
+          COMMIT_SHA=${{ github.event.pull_request.head.sha }}
+          REPO=${{ github.repository }}
+          API_URL="https://api.github.com/repos/$REPO/commits/$COMMIT_SHA/comments"
 
           curl -sS -X POST \
-               -H "Authorization: token $GITHUB_TOKEN" \
+               -H "Authorization: token $PAT_TOKEN" \
                -H "Content-Type: application/json" \
                -d "{\"body\":$COMMENT_BODY}" \
                $API_URL

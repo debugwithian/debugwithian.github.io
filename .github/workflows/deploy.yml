@@ -1,13 +1,10 @@
 name: 🚀 Auto Deploy to AWS with AI Code Review (Groq)
 
 on:
-  push:
-    branches:
-      - prod_v2
   pull_request:
     branches:
       - prod_v2
-  workflow_dispatch: # optional manual trigger
+  workflow_dispatch: # Optional manual trigger
 
 jobs:
   ai_code_review:
@@ -32,7 +29,6 @@ jobs:
 
       - name: Check for code changes & generate diff
         run: |
-          git fetch --unshallow || true
           git fetch origin prod_v2
           if ! git diff ${{ github.event.before }} ${{ github.sha }} --quiet; then
             git diff ${{ github.event.before }} ${{ github.sha }} | head -n 2000 | head -c 50000 > diff.txt
@@ -73,7 +69,6 @@ jobs:
             echo "⚠️ AI review output missing or empty."
             echo "AI Code Review: ⚠️ Skipped — invalid AI review output." > ai_review_status.txt
           else
-            # Use specific pattern for critical issues
             if grep -Eiq "^CRITICAL_ISSUE:" ai_review_output.txt; then
               echo "❌ Critical issue detected. Review failed." > ai_review_status.txt
               cat ai_review_output.txt >> ai_review_status.txt
@@ -95,7 +90,7 @@ jobs:
 
           COMMENT_BODY=$(jq -Rn --arg text "$(cat ai_review_status.txt | sed 's/["\\<>]/\\&/g')" '$text')
 
-          # Only post to PR (source branch comment)
+          # Always comment on the PR
           PR_NUMBER=${{ github.event.pull_request.number }}
           API_URL="${{ github.api_url }}/repos/${{ github.repository }}/issues/$PR_NUMBER/comments"
 

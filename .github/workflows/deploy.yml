@@ -4,14 +4,15 @@ on:
   push:
     branches:
       - prod_v2
+  pull_request:
+    branches:
+      - prod_v2
   workflow_dispatch: # Enables manual deployment trigger
 
 jobs:
   ai_code_review:
     name: 🤖 AI Code Review via Groq
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -45,10 +46,8 @@ jobs:
             exit 0
           fi
 
-          # Read diff safely
           diff=$(<diff.txt)
 
-          # Build payload safely with jq
           payload=$(jq -n --arg diff "$diff" '{
             model: "llama-3.1-8b-instant",
             messages: [
@@ -63,7 +62,6 @@ jobs:
             ]
           }') || exit 1
 
-          # Send payload to Groq API with error handling
           RAW_RESPONSE=$(curl -sS --fail https://api.groq.com/openai/v1/chat/completions \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $GROQ_API_KEY" \
@@ -79,26 +77,33 @@ jobs:
 
           echo "$REVIEW" | tee ai_review_output.txt
 
-          # Stop deployment if critical issue detected
           if grep -iq "critical issue" <<< "$REVIEW"; then
             echo "❌ Critical issue detected. Stopping deployment."
             exit 1
           fi
 
-      - name: Post AI Review as GitHub Commit Comment
-        if: success() && github.event_name == 'push'
+      - name: Post AI Review as Comment
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           COMMENT_BODY=$(cat ai_review_output.txt | sed 's/"/\\"/g')
-          API_URL="https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/comments"
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            PR_NUMBER=${{ github.event.pull_request.number }}
+            API_URL="https://api.github.com/repos/${{ github.repository }}/issues/$PR_NUMBER/comments"
+          else
+            # fallback: post on commit for push events
+            API_URL="https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/comments"
+          fi
+
           HTTP_RESPONSE=$(curl -sS --fail -w "%{http_code}" -o response.json -X POST \
             -H "Authorization: token $GITHUB_TOKEN" \
             -H "Content-Type: application/json" \
             -d "{\"body\":\"**AI Code Review:**\n\n$COMMENT_BODY\"}" \
             $API_URL)
+          
           if [ "$HTTP_RESPONSE" -ne 201 ]; then
-            echo "⚠️ Failed to post commit comment. HTTP code: $HTTP_RESPONSE"
+            echo "⚠️ Failed to post comment. HTTP code: $HTTP_RESPONSE"
             cat response.json
           fi
 

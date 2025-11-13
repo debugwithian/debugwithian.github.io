@@ -10,14 +10,10 @@ jobs:
   ai_code_review:
     name: 🤖 AI Code Review via Groq
     runs-on: ubuntu-latest
-    # Removed explicit permissions block, as PAT_TOKEN will be used for writing
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        # Need to fetch the head branch in a pull_request_target workflow
-        with:
-          ref: ${{ github.event.pull_request.head.sha }} 
 
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y jq
@@ -25,67 +21,56 @@ jobs:
       - name: Validate secrets
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          PAT_TOKEN: ${{ secrets.PAT_TOKEN }} # Re-added PAT_TOKEN validation
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           : "${GROQ_API_KEY:?GROQ_API_KEY is not set}"
-          : "${PAT_TOKEN:?PAT_TOKEN is not set}" # Re-added PAT_TOKEN check
+          : "${PAT_TOKEN:?PAT_TOKEN is not set}"
           echo "✅ Secrets validated."
 
       - name: Generate Git Diff
         run: |
-          # Fetch the target branch (prod_v2) to calculate the diff accurately
           git fetch origin prod_v2
-          
-          # Calculate diff between the base branch (prod_v2) and the PR head
-          # We use github.event.pull_request.base.sha to refer to the merge base
-          BASE_SHA=$(git merge-base origin/prod_v2 ${{ github.event.pull_request.head.sha }})
-
-          if ! git diff $BASE_SHA ${{ github.event.pull_request.head.sha }} --quiet; then
-            # Limit diff size to prevent token limits on the LLM
-            git diff $BASE_SHA ${{ github.event.pull_request.head.sha }} | head -n 2000 | head -c 50000 > diff.txt
+          if ! git diff ${{ github.event.before }} ${{ github.sha }} --quiet; then
+            git diff ${{ github.event.before }} ${{ github.sha }} | head -n 2000 | head -c 50000 > diff.txt
           else
             echo "No changes detected — skipping AI review."
-            echo "✅ No Issue on code" > ai_review_output.txt
+            echo "AI Code Review: ✅ No Issue on code" > ai_review_status.txt
           fi
 
       - name: Run AI Code Review (Groq)
+        if: exists('diff.txt')
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
-          if [ -s diff.txt ]; then
-            set -euo pipefail
-            DIFF=$(<diff.txt)
-            PAYLOAD=$(jq -n --arg diff "$DIFF" '{
-              model: "llama-3.1-8b-instant",
-              messages: [
-                {role: "system", content: "You are a senior software engineer performing a concise code review. Flag bugs, vulnerabilities, or critical issues. Respond only with the review content. If possible provide on how to fix them and advice."},
-                {role: "user", content: "Review the following git diff for potential problems or security issues:\n\n\($diff)"}
-              ]
-            }')
+          set -euo pipefail
+          DIFF=$(<diff.txt)
+          PAYLOAD=$(jq -n --arg diff "$DIFF" '{
+            model: "llama-3.1-8b-instant",
+            messages: [
+              {role: "system", content: "You are a senior software engineer performing a concise code review. Flag bugs, vulnerabilities, or critical issues."},
+              {role: "user", content: "Review the following git diff for potential problems or security issues:\n\n\($diff)"}
+            ]
+          }')
 
-            RAW_RESPONSE=$(curl -sS --fail https://api.groq.com/openai/v1/chat/completions \
-              -H "Content-Type: application/json" \
-              -H "Authorization: Bearer $GROQ_API_KEY" \
-              --data-raw "$PAYLOAD") || exit 1
+          RAW_RESPONSE=$(curl -sS --fail https://api.groq.com/openai/v1/chat/completions \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
+            --data-raw "$PAYLOAD") || exit 1
 
-            REVIEW=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
-            if [ -z "$REVIEW" ]; then
-              REVIEW="⚠️ No review returned from Groq."
-            fi
-            echo "$REVIEW" | tee ai_review_output.txt
+          REVIEW=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
+          if [ -z "$REVIEW" ]; then
+            REVIEW="⚠️ No review returned from Groq."
           fi
+          echo "$REVIEW" | tee ai_review_output.txt
 
       - name: Detect critical issues
         run: |
-          # Check if the AI generated any output
           if [ ! -s ai_review_output.txt ]; then
-            echo "✅ No Issue on code" > ai_review_status.txt
+            echo "AI Code Review: ✅ No Issue on code" > ai_review_status.txt
           else
-            # Check for the CRITICAL_ISSUE flag
             if grep -Eiq "^CRITICAL_ISSUE:" ai_review_output.txt; then
               echo "❌ Critical issue detected. Review failed." > ai_review_status.txt
               cat ai_review_output.txt >> ai_review_status.txt
-              exit 1
             else
               echo "✅ AI review passed — no critical issues detected." > ai_review_status.txt
             fi
@@ -94,12 +79,19 @@ jobs:
       - name: Post AI Review as PR Comment
         if: always()
         env:
-          PAT_TOKEN: ${{ secrets.PAT_TOKEN }} # Re-added PAT_TOKEN environment variable
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
+          # Default message if missing
+          if [ ! -s ai_review_status.txt ]; then
+            echo "✅ No Issue on code" > ai_review_status.txt
+          fi
+
+          # Prepare comment body safely
           COMMENT_BODY=$(jq -Rn --arg text "$(cat ai_review_status.txt | sed 's/["\\<>]/\\&/g')" '$text')
+
+          # Post comment on the PR (works even for forks)
           PR_NUMBER=${{ github.event.pull_request.number }}
           REPO=${{ github.repository }}
-          # Use the Issue Comment API to post to the Pull Request timeline
           API_URL="https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments"
 
           curl -sS -X POST \

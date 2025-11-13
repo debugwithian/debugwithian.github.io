@@ -31,6 +31,7 @@ jobs:
 
       - name: Generate Git Diff for PR branch
         run: |
+          set -euo pipefail
           # Fetch base branch
           git fetch origin prod_v2
 
@@ -53,8 +54,8 @@ jobs:
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
+          set -euo pipefail
           if [ -s diff.txt ]; then
-            set -euo pipefail
             DIFF=$(<diff.txt)
             PAYLOAD=$(jq -n --arg diff "$DIFF" '{
               model: "llama-3.1-8b-instant",
@@ -90,6 +91,7 @@ jobs:
 
       - name: Detect critical issues
         run: |
+          set -euo pipefail
           if [ ! -s ai_review_output.txt ]; then
             echo "✅ No Issue on code" > ai_review_status.txt
           else
@@ -99,12 +101,14 @@ jobs:
             else
               echo "✅ AI review passed — no critical issues detected." > ai_review_status.txt
             fi
+          fi
 
       - name: Post AI Review as PR Comment
         if: always()
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
+          set -euo pipefail
           # Ensure default message if missing
           if [ ! -s ai_review_status.txt ]; then
             echo "✅ No Issue on code" > ai_review_status.txt
@@ -144,6 +148,7 @@ jobs:
 
       - name: Deploy and restart app on AWS
         run: |
+          set -euo pipefail
           ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "
             cd /home/ubuntu &&
             git fetch origin prod_v2 &&

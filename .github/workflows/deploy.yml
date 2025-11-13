@@ -1,7 +1,7 @@
 name: 🚀 Auto Deploy to AWS with AI Code Review (Groq)
 
 on:
-  pull_request:
+  pull_request_target:
     branches:
       - prod_v2
   workflow_dispatch: # Optional manual trigger
@@ -25,9 +25,9 @@ jobs:
         run: |
           : "${GROQ_API_KEY:?GROQ_API_KEY is not set}"
           : "${PAT_TOKEN:?PAT_TOKEN is not set}"
-          echo "✅ Secrets are set."
+          echo "✅ Secrets validated."
 
-      - name: Check for code changes & generate diff
+      - name: Generate Git Diff
         run: |
           git fetch origin prod_v2
           if ! git diff ${{ github.event.before }} ${{ github.sha }} --quiet; then
@@ -63,7 +63,7 @@ jobs:
           fi
           echo "$REVIEW" | tee ai_review_output.txt
 
-      - name: Detect critical issues and write status
+      - name: Detect critical issues
         run: |
           if [ ! -s ai_review_output.txt ]; then
             echo "⚠️ AI review output missing or empty."
@@ -79,7 +79,7 @@ jobs:
           fi
 
       - name: Post AI Review as PR Comment
-        if: always()  # Always post comment
+        if: always()
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
@@ -90,11 +90,12 @@ jobs:
 
           COMMENT_BODY=$(jq -Rn --arg text "$(cat ai_review_status.txt | sed 's/["\\<>]/\\&/g')" '$text')
 
-          # Always comment on the PR
+          # Post comment on the PR
           PR_NUMBER=${{ github.event.pull_request.number }}
           API_URL="${{ github.api_url }}/repos/${{ github.repository }}/issues/$PR_NUMBER/comments"
 
-          curl -sS -X POST -H "Authorization: token $PAT_TOKEN" \
+          curl -sS -X POST \
+               -H "Authorization: token $PAT_TOKEN" \
                -H "Content-Type: application/json" \
                -d "{\"body\":$COMMENT_BODY}" \
                $API_URL

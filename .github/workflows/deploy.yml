@@ -150,11 +150,11 @@ jobs:
       - name: Deploy and restart app on AWS
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 bash -s <<'EOF'
-cd /home/ubuntu
-git fetch origin prod_v2
-git reset --hard origin/prod_v2
-npm install
-pm2 restart all
-echo "Deployment completed successfully"
-EOF
+          ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "
+            cd /home/ubuntu &&
+            git fetch origin prod_v2 &&
+            git reset --hard origin/prod_v2 &&
+            npm install &&
+            pm2 restart all &&
+            echo 'Deployment completed successfully'
+          "

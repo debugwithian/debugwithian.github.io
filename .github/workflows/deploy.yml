@@ -7,12 +7,13 @@ on:
   pull_request:
     branches:
       - prod_v2
-  workflow_dispatch: # Enables manual deployment trigger
+  workflow_dispatch: # Manual trigger
 
 jobs:
   ai_code_review:
     name: 🤖 AI Code Review via Groq
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -27,58 +28,48 @@ jobs:
         run: |
           : "${GROQ_API_KEY:?GROQ_API_KEY is not set}"
           : "${GITHUB_TOKEN:?GITHUB_TOKEN is not set}"
-          echo "✅ Secrets validated."
+          echo "✅ Secrets are set."
 
-      - name: Run AI Code Review (Groq)
-        env:
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      - name: Generate Git Diff
         run: |
-          set -euo pipefail
-          echo "Running AI Code Review through Groq..."
-
           git fetch --unshallow || true
           git fetch origin prod_v2
-
-          # Safely generate diff (limit lines and bytes)
           git diff ${{ github.event.before }} ${{ github.sha }} | head -n 2000 | head -c 50000 > diff.txt
           if [ ! -s diff.txt ]; then
             echo "⚠️ No code changes detected — skipping AI review."
             exit 0
           fi
 
-          diff=$(<diff.txt)
-
-          payload=$(jq -n --arg diff "$diff" '{
+      - name: Run AI Code Review (Groq)
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          set -euo pipefail
+          DIFF=$(<diff.txt)
+          PAYLOAD=$(jq -n --arg diff "$DIFF" '{
             model: "llama-3.1-8b-instant",
             messages: [
-              {
-                role: "system",
-                content: "You are a senior software engineer performing a concise code review. Flag bugs, vulnerabilities, or critical issues."
-              },
-              {
-                role: "user",
-                content: "Review the following git diff for potential problems or security issues:\n\n\($diff)"
-              }
+              {role: "system", content: "You are a senior software engineer performing a concise code review. Flag bugs, vulnerabilities, or critical issues."},
+              {role: "user", content: "Review the following git diff for potential problems or security issues:\n\n\($diff)"}
             ]
-          }') || exit 1
+          }')
 
           RAW_RESPONSE=$(curl -sS --fail https://api.groq.com/openai/v1/chat/completions \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $GROQ_API_KEY" \
-            --data-raw "$payload") || exit 1
+            --data-raw "$PAYLOAD") || exit 1
 
           REVIEW=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
-
-          echo "---- AI Code Review (Groq) ----"
           if [ -z "$REVIEW" ]; then
-            echo "⚠️ No valid review returned from Groq."
+            echo "⚠️ No review returned from Groq."
             exit 0
           fi
 
           echo "$REVIEW" | tee ai_review_output.txt
 
-          if grep -iq "critical issue" <<< "$REVIEW"; then
-            echo "❌ Critical issue detected. Stopping deployment."
+          # Detect critical issues
+          if grep -iq "critical issue" ai_review_output.txt; then
+            echo "❌ Critical issue detected. Stopping workflow."
             exit 1
           fi
 
@@ -86,25 +77,25 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          COMMENT_BODY=$(cat ai_review_output.txt | sed 's/"/\\"/g')
+          COMMENT_BODY=$(jq -Rn --arg text "$(cat ai_review_output.txt)" '$text')
 
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             PR_NUMBER=${{ github.event.pull_request.number }}
-            API_URL="https://api.github.com/repos/${{ github.repository }}/issues/$PR_NUMBER/comments"
+            API_URL="${{ github.api_url }}/repos/${{ github.repository }}/issues/$PR_NUMBER/comments"
           else
-            # fallback: post on commit for push events
-            API_URL="https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/comments"
+            API_URL="${{ github.api_url }}/repos/${{ github.repository }}/commits/${{ github.sha }}/comments"
           fi
 
-          HTTP_RESPONSE=$(curl -sS --fail -w "%{http_code}" -o response.json -X POST \
+          HTTP_RESPONSE=$(curl -sS -w "%{http_code}" -o response.json -X POST \
             -H "Authorization: token $GITHUB_TOKEN" \
             -H "Content-Type: application/json" \
-            -d "{\"body\":\"**AI Code Review:**\n\n$COMMENT_BODY\"}" \
+            -d "{\"body\":$COMMENT_BODY}" \
             $API_URL)
-          
+
           if [ "$HTTP_RESPONSE" -ne 201 ]; then
             echo "⚠️ Failed to post comment. HTTP code: $HTTP_RESPONSE"
             cat response.json
+            exit 1
           fi
 
   deploy:

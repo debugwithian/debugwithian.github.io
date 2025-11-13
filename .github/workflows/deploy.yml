@@ -52,34 +52,57 @@ jobs:
             echo "✅ No Issue on code" > ai_review_output.txt
           fi
 
-      - name: Analyze AI Review & Output JSON
+      - name: Run AI Code Review (Groq)
+        if: github.event_name == 'pull_request'
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
           set -euo pipefail
-          REVIEW_FILE="ai_review_output.txt"   # or ai_review_output.json if you use the JSON output from Groq
-          STATUS_FILE="ai_review_status.json"
+          if [ -s diff.txt ]; then
+            DIFF=$(<diff.txt)
+            PAYLOAD=$(jq -n --arg diff "$DIFF" '{
+              model: "llama-3.1-8b-instant",
+              messages: [
+                {
+                  role: "system",
+                  content: "Add Review Type on the First STRING/WORD: (CRITICAL_ISSUE, IMPROVEMENTS, etc) You are a senior software engineer performing a full, comprehensive code review. Format output for GitHub comments: provide only summary and suggested improvements. Syntax error in any language are categorized as critical issue/CRITICAL_ISSUE."
+                },
+                {
+                  role: "user",
+                  content: ("Review the following git diff for potential problems (logic, syntax, style, performance, syntax error will be categorized as critical issue, and security):\n\n" + $diff)
+                }
+              ]
+            }')
+
+            RAW_RESPONSE=$(curl -sS --fail https://api.groq.com/openai/v1/chat/completions \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer $GROQ_API_KEY" \
+              --data-raw "$PAYLOAD") || exit 1
+
+            REVIEW=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
+            [ -z "$REVIEW" ] && REVIEW="✅ No Issue on code"
+            echo "$REVIEW" | tee ai_review_output.txt
+          fi
+
+      - name: Analyze AI Review
+        run: |
+          set -euo pipefail
+          REVIEW_FILE="ai_review_output.txt"
+          STATUS_FILE="ai_review_status.txt"
           touch "$REVIEW_FILE"
 
           if [ ! -s "$REVIEW_FILE" ]; then
-            # No issues detected
-            STATUS='{"status":"PASSED","body":"No issues detected."}'
-          elif grep -Eiq "^CRITICAL_ISSUE" "$REVIEW_FILE"; then
-            # Critical issue found
-            BODY=$(cat "$REVIEW_FILE")
-            STATUS=$(jq -n --arg body "$BODY" '{"status":"CRITICAL","body":$body}')
+            echo "✅ No Issue on code" > "$STATUS_FILE"
+          elif grep -Eiq "^CRITICAL_ISSUE:" "$REVIEW_FILE"; then
+            echo "❌ Critical issue detected. Review failed." > "$STATUS_FILE"
+            cat "$REVIEW_FILE" >> "$STATUS_FILE"
           elif grep -Eiq "needs improvement|suggestion|warning" "$REVIEW_FILE"; then
-            # Warnings or suggested improvements
-            BODY=$(cat "$REVIEW_FILE")
-            STATUS=$(jq -n --arg body "$BODY" '{"status":"IMPROVEMENTS","body":$body}')
+            echo "⚠️ AI review suggests improvements." > "$STATUS_FILE"
+            cat "$REVIEW_FILE" >> "$STATUS_FILE"
           else
-            # Passed but some comments exist
-            BODY=$(cat "$REVIEW_FILE")
-            STATUS=$(jq -n --arg body "$BODY" '{"status":"PASSED","body":$body}')
+            echo "✅ AI review passed — no critical issues detected." > "$STATUS_FILE"
+            cat "$REVIEW_FILE" >> "$STATUS_FILE"
           fi
-
-          echo "$STATUS" | tee "$STATUS_FILE"
-          # Export for downstream jobs
-          echo "status=$(jq -r '.status' <<< "$STATUS")" >> $GITHUB_OUTPUT
-
 
       - name: Post AI Review as PR Comment
         if: github.event_name == 'pull_request'

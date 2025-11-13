@@ -15,7 +15,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # fetch full history to allow merge-base
+          fetch-depth: 0
 
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y jq
@@ -32,17 +32,11 @@ jobs:
       - name: Generate Git Diff for PR branch
         run: |
           set -euo pipefail
-          # Fetch base branch
           git fetch origin prod_v2
-
-          # Fetch all updates on the PR branch safely (works for forks)
           git fetch origin +refs/pull/${{ github.event.pull_request.number }}/head:pr_branch
           git checkout pr_branch
-
-          # Determine merge base with prod_v2
           BASE=$(git merge-base HEAD origin/prod_v2)
 
-          # Generate diff if there are changes
           if ! git diff $BASE HEAD --quiet; then
             git diff $BASE HEAD | head -n 2000 | head -c 50000 > diff.txt
           else
@@ -66,21 +60,15 @@ jobs:
                 },
                 {
                   role: "user",
-                  content: "Review the following git diff for potential problems in all aspects (logic, syntax, style, performance, and security):\n\n\($diff)"
+                  content: "Review the following git diff for potential problems (logic, syntax, style, performance, and security):\n\n\($diff)"
                 }
               ]
             }')
-
-            echo "=== PAYLOAD SENT TO GROQ ==="
-            echo "$PAYLOAD"
 
             RAW_RESPONSE=$(curl -sS --fail https://api.groq.com/openai/v1/chat/completions \
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer $GROQ_API_KEY" \
               --data-raw "$PAYLOAD") || exit 1
-
-            echo "=== RAW RESPONSE FROM GROQ ==="
-            echo "$RAW_RESPONSE"
 
             REVIEW=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
             if [ -z "$REVIEW" ]; then
@@ -89,18 +77,29 @@ jobs:
             echo "$REVIEW" | tee ai_review_output.txt
           fi
 
-      - name: Detect critical issues
+      - name: Analyze AI Review
+        id: analyze_review
         run: |
           set -euo pipefail
-          if [ ! -s ai_review_output.txt ]; then
-            echo "✅ No Issue on code" > ai_review_status.txt
+          REVIEW_FILE="ai_review_output.txt"
+          STATUS_FILE="ai_review_status.txt"
+
+          if [ ! -s "$REVIEW_FILE" ]; then
+            echo "✅ No Issue on code" > "$STATUS_FILE"
+            echo "review_status=passed" >> $GITHUB_ENV
+          elif grep -Eiq "^CRITICAL_ISSUE:" "$REVIEW_FILE"; then
+            echo "❌ Critical issue detected. Review failed." > "$STATUS_FILE"
+            cat "$REVIEW_FILE" >> "$STATUS_FILE"
+            echo "review_status=failed" >> $GITHUB_ENV
+            exit 1
+          elif grep -Eiq "needs improvement|suggestion|warning" "$REVIEW_FILE"; then
+            echo "⚠️ AI review suggests improvements." > "$STATUS_FILE"
+            cat "$REVIEW_FILE" >> "$STATUS_FILE"
+            echo "review_status=warning" >> $GITHUB_ENV
           else
-            if grep -Eiq "^CRITICAL_ISSUE:" ai_review_output.txt; then
-              echo "❌ Critical issue detected. Review failed." > ai_review_status.txt
-              cat ai_review_output.txt >> ai_review_status.txt
-            else
-              echo "✅ AI review passed — no critical issues detected." > ai_review_status.txt
-            fi
+            echo "✅ AI review passed — no critical issues detected." > "$STATUS_FILE"
+            cat "$REVIEW_FILE" >> "$STATUS_FILE"
+            echo "review_status=passed" >> $GITHUB_ENV
           fi
 
       - name: Post AI Review as PR Comment
@@ -109,24 +108,18 @@ jobs:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           set -euo pipefail
-          # Ensure default message if missing
-          if [ ! -s ai_review_status.txt ]; then
-            echo "✅ No Issue on code" > ai_review_status.txt
-          fi
-
-          COMMENT_BODY=$(jq -Rn --arg text "$(cat ai_review_status.txt | sed 's/["\\<>]/\\&/g')" '$text')
-
+          COMMENT_TEXT=$(cat ai_review_status.txt | sed 's/["\\<>]/\\&/g')
           PR_NUMBER=${{ github.event.pull_request.number }}
           REPO=${{ github.repository }}
           API_URL="https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments"
 
-          echo "=== POSTING COMMENT ==="
-          echo "$COMMENT_BODY"
+          echo "=== POSTING AI REVIEW COMMENT ==="
+          echo "$COMMENT_TEXT"
 
           curl -sS -X POST \
                -H "Authorization: token $PAT_TOKEN" \
                -H "Content-Type: application/json" \
-               -d "{\"body\":$COMMENT_BODY}" \
+               -d "{\"body\":\"$COMMENT_TEXT\"}" \
                $API_URL
 
   deploy:

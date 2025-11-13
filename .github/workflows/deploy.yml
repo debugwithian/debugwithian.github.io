@@ -69,7 +69,7 @@ jobs:
                 },
                 {
                   role: "user",
-                  content: ("Review the following git diff for potential problems (logic, syntax, style, performance, Syntax error in any language are categorized as critical issue/CRITICAL_ISSUE, and security):\n\n" + $diff)
+                  content: ("Review the following git diff for potential problems (logic, syntax, style, performance, syntax error will be categorized as critical issue, and security):\n\n" + $diff)
                 }
               ]
             }')

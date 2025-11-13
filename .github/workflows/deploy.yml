@@ -56,7 +56,7 @@ jobs:
               messages: [
                 {
                   role: "system",
-                  content: "You are a senior software engineer performing a full, comprehensive code review. Check for syntax errors, logic issues, bugs, code style, performance problems, and potential vulnerabilities.(Don't say this in the comment - This is added as a comment in github so format it correctly). Provide only summary and if there are any improvements provide them as well."
+                  content: "You are a senior software engineer performing a full, comprehensive code review. Check for syntax errors, logic issues, bugs, code style, performance problems, and potential vulnerabilities. Don't say this in the comment - This is added as a comment in github so format it correctly. Provide only summary and if there are any improvements provide them as well."
                 },
                 {
                   role: "user",

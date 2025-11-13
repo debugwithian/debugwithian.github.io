@@ -1,9 +1,6 @@
 name: 🚀 Auto Deploy to AWS with AI Code Review (Groq)
 
 on:
-  pull_request_target:
-    branches:
-      - prod_v2
   push:
     branches:
       - prod_v2
@@ -61,22 +58,14 @@ jobs:
             PAYLOAD=$(jq -n --arg diff "$DIFF" '{
               model: "llama-3.1-8b-instant",
               messages: [
-                {
-                  role: "system",
-                  content: "You are a senior software engineer performing a full, comprehensive code review. Format output for GitHub comments: provide only summary and suggested improvements."
-                },
-                {
-                  role: "user",
-                  content: ("Review the following git diff for potential problems (logic, syntax, style, performance, and security):\n\n" + $diff)
-                }
+                { role: "system", content: "You are a senior software engineer performing a full, comprehensive code review. Format output for GitHub comments: provide only summary and suggested improvements." },
+                { role: "user", content: ("Review the following git diff for potential problems:\n\n" + $diff) }
               ]
             }')
-
             RAW_RESPONSE=$(curl -sS --fail https://api.groq.com/openai/v1/chat/completions \
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer $GROQ_API_KEY" \
               --data-raw "$PAYLOAD") || exit 1
-
             REVIEW=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
             [ -z "$REVIEW" ] && REVIEW="✅ No Issue on code"
             echo "$REVIEW" | tee ai_review_output.txt
@@ -113,28 +102,18 @@ jobs:
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          set -euo pipefail
           REVIEW_CONTENT=$(cat ai_review_status.txt)
           JSON_BODY=$(jq -Rn --arg text "$REVIEW_CONTENT" '{"body": $text}')
-
           PR_NUMBER=${{ github.event.pull_request.number }}
           REPO=${{ github.repository }}
           API_URL="https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments"
-
-          echo "=== POSTING AI REVIEW COMMENT ==="
-          echo "$REVIEW_CONTENT"
-
-          curl -sS -X POST \
-               -H "Authorization: token $PAT_TOKEN" \
-               -H "Content-Type: application/json" \
-               -d "$JSON_BODY" \
-               $API_URL
+          curl -sS -X POST -H "Authorization: token $PAT_TOKEN" -H "Content-Type: application/json" -d "$JSON_BODY" $API_URL
 
   deploy:
     name: 🚀 Deploy to AWS
     runs-on: ubuntu-latest
     needs: ai_code_review
-    if: github.ref == 'refs/heads/prod_v2' && needs.ai_code_review.outputs.status != 'failed'
+    if: github.event_name == 'push' && needs.ai_code_review.outputs.status != 'failed'
 
     steps:
       - name: Checkout code
@@ -149,7 +128,6 @@ jobs:
 
       - name: Deploy and restart app on AWS
         run: |
-          set -euo pipefail
           ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "
             cd /home/ubuntu &&
             git fetch origin prod_v2 &&

@@ -65,7 +65,7 @@ jobs:
               messages: [
                 {
                   role: "system",
-                  content: "You are a senior software engineer performing a full, comprehensive code review. Format output for GitHub comments: provide only summary and suggested improvements. Syntax error are tagged as critical issue."
+                  content: "You are a senior software engineer performing a full, comprehensive code review. Format output for GitHub comments: provide only summary and suggested improvements. Syntax error in any language are categorized as critical issue/CRITICAL_ISSUE."
                 },
                 {
                   role: "user",

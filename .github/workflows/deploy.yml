@@ -30,8 +30,13 @@ jobs:
       - name: Generate Git Diff
         run: |
           git fetch origin prod_v2
-          if ! git diff ${{ github.event.before }} ${{ github.sha }} --quiet; then
-            git diff ${{ github.event.before }} ${{ github.sha }} > diff.txt
+
+          git checkout ${{ github.event.pull_request.head.ref }}
+
+          BASE=$(git merge-base HEAD origin/prod_v2)
+
+          if ! git diff $BASE HEAD --quiet; then
+            git diff $BASE HEAD | head -n 2000 | head -c 50000 > diff.txt
           else
             echo "No changes detected — skipping AI review."
             echo "✅ No Issue on code" > ai_review_output.txt

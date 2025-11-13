@@ -4,11 +4,13 @@ on:
   push:
     branches:
       - prod_v2
+  workflow_dispatch:  # Enables manual deployment trigger
 
 jobs:
   ai_code_review:
     name: 🤖 AI Code Review via Groq
     runs-on: ubuntu-latest
+    if: github.event_name == 'push'  # Only run review on code push
 
     steps:
       - name: Checkout code
@@ -47,9 +49,10 @@ jobs:
           fi
 
   deploy:
-    name: 🚀 Deploy to AWS
+    name: 🚀 Deploy to AWS (Manual Trigger)
     runs-on: ubuntu-latest
     needs: ai_code_review
+    if: github.event_name == 'workflow_dispatch'  # Run only when triggered manually
 
     steps:
       - name: Checkout code

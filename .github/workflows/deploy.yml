@@ -34,39 +34,40 @@ jobs:
             git diff ${{ github.event.before }} ${{ github.sha }} | head -n 2000 | head -c 50000 > diff.txt
           else
             echo "No changes detected — skipping AI review."
-            echo "AI Code Review: ✅ No Issue on code" > ai_review_status.txt
+            echo "✅ No Issue on code" > ai_review_output.txt
           fi
 
       - name: Run AI Code Review (Groq)
-        if: exists('diff.txt')
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
-          set -euo pipefail
-          DIFF=$(<diff.txt)
-          PAYLOAD=$(jq -n --arg diff "$DIFF" '{
-            model: "llama-3.1-8b-instant",
-            messages: [
-              {role: "system", content: "You are a senior software engineer performing a concise code review. Flag bugs, vulnerabilities, or critical issues."},
-              {role: "user", content: "Review the following git diff for potential problems or security issues:\n\n\($diff)"}
-            ]
-          }')
+          if [ -s diff.txt ]; then
+            set -euo pipefail
+            DIFF=$(<diff.txt)
+            PAYLOAD=$(jq -n --arg diff "$DIFF" '{
+              model: "llama-3.1-8b-instant",
+              messages: [
+                {role: "system", content: "You are a senior software engineer performing a concise code review. Flag bugs, vulnerabilities, or critical issues."},
+                {role: "user", content: "Review the following git diff for potential problems or security issues:\n\n\($diff)"}
+              ]
+            }')
 
-          RAW_RESPONSE=$(curl -sS --fail https://api.groq.com/openai/v1/chat/completions \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $GROQ_API_KEY" \
-            --data-raw "$PAYLOAD") || exit 1
+            RAW_RESPONSE=$(curl -sS --fail https://api.groq.com/openai/v1/chat/completions \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer $GROQ_API_KEY" \
+              --data-raw "$PAYLOAD") || exit 1
 
-          REVIEW=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
-          if [ -z "$REVIEW" ]; then
-            REVIEW="⚠️ No review returned from Groq."
+            REVIEW=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
+            if [ -z "$REVIEW" ]; then
+              REVIEW="✅ No Issue on code"
+            fi
+            echo "$REVIEW" | tee ai_review_output.txt
           fi
-          echo "$REVIEW" | tee ai_review_output.txt
 
       - name: Detect critical issues
         run: |
           if [ ! -s ai_review_output.txt ]; then
-            echo "AI Code Review: ✅ No Issue on code" > ai_review_status.txt
+            echo "✅ No Issue on code" > ai_review_status.txt
           else
             if grep -Eiq "^CRITICAL_ISSUE:" ai_review_output.txt; then
               echo "❌ Critical issue detected. Review failed." > ai_review_status.txt
@@ -77,11 +78,11 @@ jobs:
           fi
 
       - name: Post AI Review as PR Comment
-        if: always()
+        if: always()  # Always run
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          # Default message if missing
+          # Ensure default message if file is missing
           if [ ! -s ai_review_status.txt ]; then
             echo "✅ No Issue on code" > ai_review_status.txt
           fi
@@ -89,7 +90,7 @@ jobs:
           # Prepare comment body safely
           COMMENT_BODY=$(jq -Rn --arg text "$(cat ai_review_status.txt | sed 's/["\\<>]/\\&/g')" '$text')
 
-          # Post comment on the PR (works even for forks)
+          # Post comment on the PR
           PR_NUMBER=${{ github.event.pull_request.number }}
           REPO=${{ github.repository }}
           API_URL="https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments"

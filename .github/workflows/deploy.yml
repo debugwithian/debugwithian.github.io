@@ -42,7 +42,7 @@ jobs:
           else
             echo "No changes detected — skipping AI review."
             echo "✅ No Issue on code" > ai_review_output.txt
-          fi 
+          fi
 
       - name: Run AI Code Review (Groq)
         env:
@@ -56,7 +56,7 @@ jobs:
               messages: [
                 {
                   role: "system",
-                  content: "You are a senior software engineer performing a full, comprehensive code review. Check for syntax errors, logic issues, bugs, code style, performance problems, and potential vulnerabilities. Don't say this in the comment - This is added as a comment in github so format it correctly. Provide only summary and if there are any improvements provide them as well."
+                  content: "You are a senior software engineer performing a full, comprehensive code review. Check for syntax errors, logic issues, bugs, code style, performance problems, and potential vulnerabilities. Don't say this in the comment — format it correctly for GitHub comments. Provide only summary and suggested improvements."
                 },
                 {
                   role: "user",
@@ -71,6 +71,9 @@ jobs:
               --data-raw "$PAYLOAD") || exit 1
 
             REVIEW=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
+            if [ -z "$REVIEW" ]; then
+              REVIEW="✅ No Issue on code"
+            fi
             echo "$REVIEW" | tee ai_review_output.txt
           fi
 
@@ -80,6 +83,9 @@ jobs:
           set -euo pipefail
           REVIEW_FILE="ai_review_output.txt"
           STATUS_FILE="ai_review_status.txt"
+
+          # Ensure the file exists
+          touch "$REVIEW_FILE"
 
           if [ ! -s "$REVIEW_FILE" ]; then
             echo "✅ No Issue on code" > "$STATUS_FILE"
@@ -105,10 +111,9 @@ jobs:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           set -euo pipefail
-          # Read the review status file
           REVIEW_CONTENT=$(cat ai_review_status.txt)
 
-          # Escape special characters for JSON
+          # Escape special characters safely for JSON
           JSON_BODY=$(jq -Rn --arg text "$REVIEW_CONTENT" '{"body": $text}')
 
           PR_NUMBER=${{ github.event.pull_request.number }}

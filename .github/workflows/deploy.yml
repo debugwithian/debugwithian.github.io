@@ -47,6 +47,7 @@ jobs:
           else
             echo "No changes detected — skipping AI review."
             echo "✅ No Issue on code" > ai_review_output.txt
+          fi 
 
       - name: Run AI Code Review (Groq)
         env:

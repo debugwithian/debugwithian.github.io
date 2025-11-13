@@ -71,9 +71,6 @@ jobs:
               --data-raw "$PAYLOAD") || exit 1
 
             REVIEW=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
-            if [ -z "$REVIEW" ]; then
-              REVIEW="✅ No Issue on code"
-            fi
             echo "$REVIEW" | tee ai_review_output.txt
           fi
 

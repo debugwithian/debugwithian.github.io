@@ -38,12 +38,18 @@ jobs:
           diff=$(cat diff.txt)
           sanitized_diff=$(printf '%s' "$diff" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')
 
-          # Build payload safely
+          # Build payload safely with jq string interpolation
           jq -n --arg diff "$sanitized_diff" '{
-            model: "llama-3.1-70b-versatile",
+            model: "llama-3.1-8b-instant",
             messages: [
-              {role: "system", content: "You are a senior software engineer performing a concise code review. Flag bugs, vulnerabilities, or critical issues."},
-              {role: "user", content: "Review the following git diff for potential problems or security issues:\n\n" + $diff}
+              {
+                role: "system",
+                content: "You are a senior software engineer performing a concise code review. Flag bugs, vulnerabilities, or critical issues."
+              },
+              {
+                role: "user",
+                content: "Review the following git diff for potential problems or security issues:\n\n\($diff)"
+              }
             ]
           }' > payload.json
 
@@ -66,7 +72,7 @@ jobs:
 
           echo "$REVIEW" | tee ai_review_output.txt
 
-          # Optional: stop deployment if AI flags a critical issue
+          # Stop deployment if AI flags a critical issue
           if echo "$REVIEW" | grep -qi "critical issue"; then
             echo "❌ Critical issue detected. Stopping deployment."
             exit 1

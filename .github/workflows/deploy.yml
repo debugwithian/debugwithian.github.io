@@ -4,10 +4,10 @@ on:
   push:
     branches:
       - prod_v2
-  pull_request:
+  pull_request_target:
     branches:
       - prod_v2
-  workflow_dispatch: # Manual trigger
+  workflow_dispatch:
 
 jobs:
   ai_code_review:
@@ -37,6 +37,7 @@ jobs:
           git diff ${{ github.event.before }} ${{ github.sha }} | head -n 2000 | head -c 50000 > diff.txt
           if [ ! -s diff.txt ]; then
             echo "⚠️ No code changes detected — skipping AI review."
+            echo "AI Code Review: ✅ Passed — no changes detected." > ai_review_output.txt
             exit 0
           fi
 
@@ -61,25 +62,29 @@ jobs:
 
           REVIEW=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
           if [ -z "$REVIEW" ]; then
-            echo "⚠️ No review returned from Groq."
-            exit 0
+            REVIEW="⚠️ No review returned from Groq."
           fi
 
           echo "$REVIEW" | tee ai_review_output.txt
 
-          # Detect critical issues
+          # Mark workflow as failed if critical issue detected
           if grep -iq "critical issue" ai_review_output.txt; then
-            echo "❌ Critical issue detected. Stopping workflow."
+            echo "❌ Critical issue detected. Review failed."
+            echo "AI Code Review: ❌ Failed — critical issues detected. See details below:" > ai_review_status.txt
+            cat ai_review_output.txt >> ai_review_status.txt
             exit 1
+          else
+            echo "AI Code Review: ✅ Passed. No critical issues found." > ai_review_status.txt
           fi
 
       - name: Post AI Review as Comment
+        if: always()  # Run even if previous step failed
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          COMMENT_BODY=$(jq -Rn --arg text "$(cat ai_review_output.txt)" '$text')
+          COMMENT_BODY=$(jq -Rn --arg text "$(cat ai_review_status.txt)" '$text')
 
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
+          if [ "${{ github.event_name }}" = "pull_request_target" ]; then
             PR_NUMBER=${{ github.event.pull_request.number }}
             API_URL="${{ github.api_url }}/repos/${{ github.repository }}/issues/$PR_NUMBER/comments"
           else
@@ -95,7 +100,6 @@ jobs:
           if [ "$HTTP_RESPONSE" -ne 201 ]; then
             echo "⚠️ Failed to post comment. HTTP code: $HTTP_RESPONSE"
             cat response.json
-            exit 1
           fi
 
   deploy:

@@ -56,7 +56,7 @@ jobs:
               messages: [
                 {
                   role: "system",
-                  content: "You are a senior software engineer performing a full, comprehensive code review. Check for syntax errors, logic issues, bugs, code style, performance problems, and potential vulnerabilities."
+                  content: "You are a senior software engineer performing a full, comprehensive code review. Check for syntax errors, logic issues, bugs, code style, performance problems, and potential vulnerabilities. This is added as a comment in github format it correctly based on GitHub policy."
                 },
                 {
                   role: "user",
@@ -108,18 +108,23 @@ jobs:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           set -euo pipefail
-          COMMENT_TEXT=$(cat ai_review_status.txt | sed 's/["\\<>]/\\&/g')
+          # Read the review status file
+          REVIEW_CONTENT=$(cat ai_review_status.txt)
+
+          # Escape special characters for JSON
+          JSON_BODY=$(jq -Rn --arg text "$REVIEW_CONTENT" '{"body": $text}')
+
           PR_NUMBER=${{ github.event.pull_request.number }}
           REPO=${{ github.repository }}
           API_URL="https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments"
 
           echo "=== POSTING AI REVIEW COMMENT ==="
-          echo "$COMMENT_TEXT"
+          echo "$REVIEW_CONTENT"
 
           curl -sS -X POST \
                -H "Authorization: token $PAT_TOKEN" \
                -H "Content-Type: application/json" \
-               -d "{\"body\":\"$COMMENT_TEXT\"}" \
+               -d "$JSON_BODY" \
                $API_URL
 
   deploy:

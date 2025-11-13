@@ -7,12 +7,13 @@ on:
   pull_request_target:
     branches:
       - prod_v2
-  workflow_dispatch:
+  workflow_dispatch: # Manual trigger
 
 jobs:
   ai_code_review:
     name: 🤖 AI Code Review via Groq
     runs-on: ubuntu-latest
+    if: github.repository_owner == github.actor # Restrict to repo owner
 
     steps:
       - name: Checkout code
@@ -30,14 +31,15 @@ jobs:
           : "${GITHUB_TOKEN:?GITHUB_TOKEN is not set}"
           echo "✅ Secrets are set."
 
-      - name: Generate Git Diff
+      - name: Check for code changes & generate diff
         run: |
           git fetch --unshallow || true
           git fetch origin prod_v2
-          git diff ${{ github.event.before }} ${{ github.sha }} | head -n 2000 | head -c 50000 > diff.txt
-          if [ ! -s diff.txt ]; then
-            echo "⚠️ No code changes detected — skipping AI review."
-            echo "AI Code Review: ✅ Passed — no changes detected." > ai_review_output.txt
+          if ! git diff ${{ github.event.before }} ${{ github.sha }} --quiet; then
+            git diff ${{ github.event.before }} ${{ github.sha }} | head -n 2000 | head -c 50000 > diff.txt
+          else
+            echo "No changes detected — skipping AI review."
+            echo "AI Code Review: ✅ Passed — no changes detected." > ai_review_status.txt
             exit 0
           fi
 
@@ -67,22 +69,28 @@ jobs:
 
           echo "$REVIEW" | tee ai_review_output.txt
 
-          # Mark workflow as failed if critical issue detected
-          if grep -iq "critical issue" ai_review_output.txt; then
-            echo "❌ Critical issue detected. Review failed."
-            echo "AI Code Review: ❌ Failed — critical issues detected. See details below:" > ai_review_status.txt
-            cat ai_review_output.txt >> ai_review_status.txt
-            exit 1
+      - name: Detect critical issues
+        run: |
+          if [ -s ai_review_output.txt ]; then
+            if grep -iq "critical issue" ai_review_output.txt; then
+              echo "❌ Critical issue detected. Review failed."
+              echo "AI Code Review: ❌ Failed — critical issues detected. See details below:" > ai_review_status.txt
+              cat ai_review_output.txt >> ai_review_status.txt
+              exit 1
+            else
+              echo "AI Code Review: ✅ Passed — no critical issues found." > ai_review_status.txt
+            fi
           else
-            echo "AI Code Review: ✅ Passed. No critical issues found." > ai_review_status.txt
+            echo "⚠️ Warning: ai_review_output.txt is empty or invalid."
+            echo "AI Code Review: ⚠️ Skipped — invalid AI review output." > ai_review_status.txt
           fi
 
       - name: Post AI Review as Comment
-        if: always()  # Run even if previous step failed
+        if: always()  # Always post comment
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          COMMENT_BODY=$(jq -Rn --arg text "$(cat ai_review_status.txt)" '$text')
+          COMMENT_BODY=$(jq -Rn --arg text "$(cat ai_review_status.txt | sed 's/[<>]//g')" '$text')
 
           if [ "${{ github.event_name }}" = "pull_request_target" ]; then
             PR_NUMBER=${{ github.event.pull_request.number }}

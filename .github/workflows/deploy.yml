@@ -31,7 +31,7 @@ jobs:
         run: |
           git fetch origin prod_v2
           if ! git diff ${{ github.event.before }} ${{ github.sha }} --quiet; then
-            git diff ${{ github.event.before }} ${{ github.sha }} | head -n 2000 | head -c 50000 > diff.txt
+            git diff ${{ github.event.before }} ${{ github.sha }} > diff.txt
           else
             echo "No changes detected — skipping AI review."
             echo "✅ No Issue on code" > ai_review_output.txt
@@ -47,15 +47,27 @@ jobs:
             PAYLOAD=$(jq -n --arg diff "$DIFF" '{
               model: "llama-3.1-8b-instant",
               messages: [
-                {role: "system", content: "You are a senior software engineer performing a concise code review. Flag bugs, vulnerabilities, or critical issues."},
-                {role: "user", content: "Review the following git diff for potential problems or security issues:\n\n\($diff)"}
+                {
+                  role: "system",
+                  content: "You are a senior software engineer performing a full, comprehensive code review. Check for syntax errors, logic issues, bugs, code style, performance problems, and potential vulnerabilities."
+                },
+                {
+                  role: "user",
+                  content: "Review the following git diff for potential problems in all aspects (logic, syntax, style, performance, and security):\n\n\($diff)"
+                }
               ]
             }')
+
+            echo "=== PAYLOAD SENT TO GROQ ==="
+            echo "$PAYLOAD"
 
             RAW_RESPONSE=$(curl -sS --fail https://api.groq.com/openai/v1/chat/completions \
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer $GROQ_API_KEY" \
               --data-raw "$PAYLOAD") || exit 1
+
+            echo "=== RAW RESPONSE FROM GROQ ==="
+            echo "$RAW_RESPONSE"
 
             REVIEW=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
             if [ -z "$REVIEW" ]; then
@@ -78,22 +90,23 @@ jobs:
           fi
 
       - name: Post AI Review as PR Comment
-        if: always()  # Always run
+        if: always()
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          # Ensure default message if file is missing
+          # Default message if missing
           if [ ! -s ai_review_status.txt ]; then
             echo "✅ No Issue on code" > ai_review_status.txt
           fi
 
-          # Prepare comment body safely
           COMMENT_BODY=$(jq -Rn --arg text "$(cat ai_review_status.txt | sed 's/["\\<>]/\\&/g')" '$text')
 
-          # Post comment on the PR
           PR_NUMBER=${{ github.event.pull_request.number }}
           REPO=${{ github.repository }}
           API_URL="https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments"
+
+          echo "=== POSTING COMMENT ==="
+          echo "$COMMENT_BODY"
 
           curl -sS -X POST \
                -H "Authorization: token $PAT_TOKEN" \

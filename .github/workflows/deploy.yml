@@ -22,12 +22,11 @@ jobs:
         run: |
           echo "Running AI Code Review through Groq..."
 
-          # Ensure we have full git history for diffing
+          # Ensure full git history to diff multiple commits
           git fetch --unshallow || true
           git fetch origin prod_v2
 
-          # Create diff between last and current commits in this push
-          echo "Generating git diff between commits..."
+          # Generate diff for this push
           git diff ${{ github.event.before }} ${{ github.sha }} | tail -n 2000 > diff.txt
 
           if [ ! -s diff.txt ]; then
@@ -35,16 +34,20 @@ jobs:
             exit 0
           fi
 
-          # Build JSON payload safely
-          jq -n --arg diff "$(cat diff.txt)" '{
-            model: "llama-3.1-8b-instant",
+          # Sanitize diff to prevent arbitrary code execution
+          diff=$(cat diff.txt)
+          sanitized_diff=$(printf '%s' "$diff" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')
+
+          # Build payload safely
+          jq -n --arg diff "$sanitized_diff" '{
+            model: "llama-3.1-70b-versatile",
             messages: [
-              {role: "system", content: "You are a senior software engineer performing a concise code review. Focus on bugs, vulnerabilities, bad practices, and critical issues only."},
-              {role: "user", content: "Review the following git diff for potential problems or security issues:\n\n\($diff)"}
+              {role: "system", content: "You are a senior software engineer performing a concise code review. Flag bugs, vulnerabilities, or critical issues."},
+              {role: "user", content: "Review the following git diff for potential problems or security issues:\n\n" + $diff}
             ]
           }' > payload.json
 
-          # Send request to Groq API
+          # Send to Groq API
           RAW_RESPONSE=$(curl -s https://api.groq.com/openai/v1/chat/completions \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $GROQ_API_KEY" \
@@ -53,7 +56,6 @@ jobs:
           echo "---- RAW Groq Response ----"
           echo "$RAW_RESPONSE"
 
-          # Safely extract the review text
           REVIEW=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
 
           echo "---- AI Code Review (Groq) ----"
@@ -64,11 +66,23 @@ jobs:
 
           echo "$REVIEW" | tee ai_review_output.txt
 
-          # Optional: stop if AI flags a critical issue
+          # Optional: stop deployment if AI flags a critical issue
           if echo "$REVIEW" | grep -qi "critical issue"; then
             echo "❌ Critical issue detected. Stopping deployment."
             exit 1
           fi
+
+      - name: Post AI Review as GitHub Commit Comment
+        if: success() && github.event_name == 'push'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Posting AI review as commit comment..."
+          COMMENT_BODY=$(cat ai_review_output.txt | sed 's/"/\\"/g')
+          API_URL="https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/comments"
+          curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" -H "Content-Type: application/json" \
+            -d "{\"body\":\"**AI Code Review:**\n\n$COMMENT_BODY\"}" \
+            $API_URL
 
   deploy:
     name: 🚀 Deploy to AWS (Manual Trigger)

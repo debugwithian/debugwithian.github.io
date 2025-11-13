@@ -1,9 +1,6 @@
 name: 🚀 Auto Deploy to AWS with AI Code Review (Groq)
 
 on:
-  push:
-    branches:
-      - prod_v2
   pull_request_target:
     branches:
       - prod_v2
@@ -33,7 +30,6 @@ jobs:
           echo "✅ Secrets validated."
 
       - name: Generate Git Diff for PR branch
-        if: github.event_name == 'pull_request_target'
         run: |
           set -euo pipefail
           git fetch origin prod_v2
@@ -46,6 +42,7 @@ jobs:
           else
             echo "No changes detected — skipping AI review."
             echo "✅ No Issue on code" > ai_review_output.txt
+          fi
 
       - name: Run AI Code Review (Groq)
         env:
@@ -54,6 +51,8 @@ jobs:
           set -euo pipefail
           if [ -s diff.txt ]; then
             DIFF=$(<diff.txt)
+
+            # Build JSON payload safely
             PAYLOAD=$(jq -n --arg diff "$DIFF" '{
               model: "llama-3.1-8b-instant",
               messages: [
@@ -63,7 +62,7 @@ jobs:
                 },
                 {
                   role: "user",
-                  content: $diff
+                  content: ("Review the following git diff for potential problems (logic, syntax, style, performance, and security):\n\n" + $diff)
                 }
               ]
             }')
@@ -84,6 +83,8 @@ jobs:
           set -euo pipefail
           REVIEW_FILE="ai_review_output.txt"
           STATUS_FILE="ai_review_status.txt"
+
+          # Ensure the file exists
           touch "$REVIEW_FILE"
 
           if [ ! -s "$REVIEW_FILE" ]; then
@@ -102,15 +103,19 @@ jobs:
             echo "✅ AI review passed — no critical issues detected." > "$STATUS_FILE"
             cat "$REVIEW_FILE" >> "$STATUS_FILE"
             echo "review_status=passed" >> $GITHUB_ENV
+          fi
 
       - name: Post AI Review as PR Comment
-        if: github.event_name == 'pull_request_target'
+        if: always()
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           set -euo pipefail
           REVIEW_CONTENT=$(cat ai_review_status.txt)
+
+          # Escape special characters safely for JSON
           JSON_BODY=$(jq -Rn --arg text "$REVIEW_CONTENT" '{"body": $text}')
+
           PR_NUMBER=${{ github.event.pull_request.number }}
           REPO=${{ github.repository }}
           API_URL="https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments"
@@ -125,7 +130,7 @@ jobs:
                $API_URL
 
   deploy:
-    name: 🚀 Deploy to AWS
+    name: 🚀 Deploy to AWS (Manual Trigger)
     runs-on: ubuntu-latest
     needs: ai_code_review
     if: github.ref == 'refs/heads/prod_v2' && env.review_status != 'failed'

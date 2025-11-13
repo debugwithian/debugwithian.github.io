@@ -60,7 +60,7 @@ jobs:
                 },
                 {
                   role: "user",
-                  content: "Review the following git diff for potential problems (logic, syntax, style, performance, and security):\n\n\($diff)"
+                  content: ("Review the following git diff for potential problems (logic, syntax, style, performance, and security):\n\n" + $diff)
                 }
               ]
             }')

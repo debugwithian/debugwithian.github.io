@@ -22,9 +22,9 @@ jobs:
         run: |
           echo "Running AI Code Review through Groq..."
           
-          # Get code differences between prod_v2 and main
-          git fetch origin main
-          git diff origin/main..HEAD > diff.txt
+          # Get code differences in the last push (only in prod_v2)
+          git fetch origin prod_v2
+          git diff HEAD~1 HEAD > diff.txt
 
           # Send diff to Groq for AI-based review
           REVIEW=$(curl -s https://api.groq.com/openai/v1/chat/completions \

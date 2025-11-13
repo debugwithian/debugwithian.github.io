@@ -83,6 +83,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          if [ ! -s ai_review_status.txt ]; then
+            echo "⚠️ AI review status missing — skipping posting."
+            exit 0
+          fi
+
           COMMENT_BODY=$(jq -Rn --arg text "$(cat ai_review_status.txt | sed 's/["\\<>]/\\&/g')" '$text')
           PR_NUMBER=${{ github.event.pull_request.number }}
           API_URL="${{ github.api_url }}/repos/${{ github.repository }}/issues/$PR_NUMBER/comments"

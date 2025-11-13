@@ -1,4 +1,4 @@
-name: 🚀 Auto Deploy to AWS
+name: 🚀 Auto Deploy to AWS with AI Code Review (Groq)
 
 on:
   push:
@@ -6,8 +6,50 @@ on:
       - prod_v2
 
 jobs:
-  deploy:
+  ai_code_review:
+    name: 🤖 AI Code Review via Groq
     runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run AI Code Review (Groq)
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          echo "Running AI Code Review through Groq..."
+          
+          # Get code differences between prod_v2 and main
+          git fetch origin main
+          git diff origin/main..HEAD > diff.txt
+
+          # Send diff to Groq for AI-based review
+          REVIEW=$(curl -s https://api.groq.com/openai/v1/chat/completions \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
+            -d '{
+              "model": "llama-3.1-70b-versatile",
+              "messages": [
+                {"role": "system", "content": "You are a senior software engineer performing a precise, concise code review. Flag bugs, vulnerabilities, or critical issues."},
+                {"role": "user", "content": "Review the following git diff for potential problems, bad practices, or security issues. Be concise:\n\n'"$(cat diff.txt | sed 's/"/\\"/g')"' "}
+              ]
+            }' | jq -r '.choices[0].message.content')
+
+          echo "---- AI Code Review (Groq) ----"
+          echo "$REVIEW"
+          echo "$REVIEW" | tee ai_review_output.txt
+
+          # Optional: Fail deployment if AI detects critical issues
+          if echo "$REVIEW" | grep -qi "critical issue"; then
+            echo "❌ Critical issue detected. Stopping deployment."
+            exit 1
+          fi
+
+  deploy:
+    name: 🚀 Deploy to AWS
+    runs-on: ubuntu-latest
+    needs: ai_code_review
 
     steps:
       - name: Checkout code

@@ -68,11 +68,11 @@ jobs:
               messages: [
                 {
                   role: "system",
-                  content: "You are a senior software engineer performing a strict code review. Your ONLY output must be a valid JSON object in the exact format: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"body\": \"Comment here\"}. Do NOT output anything else. If any syntax error exists, status must be CRITICAL_ISSUE."
+                  content: "You are a senior software engineer performing a strict code review. Body must contain line of codes that are impacted with your review. This would be added as a comment in the Merge/Pull Request - dont say it in your comment. Your ONLY output must be a valid JSON object in the exact format: {\"status\": \"CRITICAL ISSUE|IMPROVEMENTS|PASSED\", \"body\": \"Comment here\"}. Do NOT output anything else. If any syntax error exists, status must be CRITICAL ISSUE."
                 },
                 {
                   role: "user",
-                  content: ("Review the following git diff for potential problems (logic, syntax, style, performance, security). Syntax errors including on HTML like closing tags not properly closed etc. must always produce status CRITICAL_ISSUE.\n\n" + $diff)
+                  content: ("Review the following git diff for potential problems (logic, syntax, style, performance, security). Syntax errors including on HTML like closing tags not properly closed etc. must always produce status CRITICAL ISSUE.\n\n" + $diff)
                 }
               ]
             }')
@@ -108,14 +108,14 @@ jobs:
           STATUS=$(jq -r '.status // empty' "$REVIEW_FILE" 2>/dev/null || echo "")
           BODY=$(jq -r '.body // empty' "$REVIEW_FILE" 2>/dev/null || echo "")
 
-          if [[ "$STATUS" == "CRITICAL_ISSUE" ]]; then
-            echo "Status: CRITICAL_ISSUE" > "$STATUS_FILE"
-            REVIEW_RESULT="CRITICAL_ISSUE"
+          if [[ "$STATUS" == "CRITICAL ISSUE" ]]; then
+            echo "Status: ❌ CRITICAL ISSUE " > "$STATUS_FILE"
+            REVIEW_RESULT="CRITICAL ISSUE"
           elif [[ "$STATUS" == "IMPROVEMENTS" ]]; then
-            echo "Status: IMPROVEMENTS" > "$STATUS_FILE"
+            echo "Status: ⚠️ IMPROVEMENTS" > "$STATUS_FILE"
             REVIEW_RESULT="IMPROVEMENTS"
           elif [[ "$STATUS" == "PASSED" ]]; then
-            echo "Status: PASSED" > "$STATUS_FILE"
+            echo "Status: ✅ PASSED" > "$STATUS_FILE"
             REVIEW_RESULT="PASSED"
           else
             echo "Status: INVALID" > "$STATUS_FILE"
@@ -150,7 +150,7 @@ jobs:
     name: 🚀 Deploy to AWS
     runs-on: ubuntu-latest
     needs: ai_code_review
-    if: needs.ai_code_review.outputs.review_status != 'CRITICAL_ISSUE' && github.event_name == 'push' && github.ref == 'refs/heads/prod_v2'
+    if: needs.ai_code_review.outputs.review_status != 'CRITICAL ISSUE' && github.event_name == 'push' && github.ref == 'refs/heads/prod_v2'
 
     steps:
       - name: Checkout code

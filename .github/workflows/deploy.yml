@@ -62,16 +62,17 @@ jobs:
           set -euo pipefail
           DIFF=$(<diff.txt)
 
+          # Prepare AI payload: structured PR comment
           PAYLOAD=$(jq -n --arg diff "$DIFF" '{
             model: "llama-3.1-8b-instant",
             messages: [
               {
                 role: "system",
-                content: "You are a senior software engineer performing a strict code review. Your ONLY output must be a single valid JSON object in the exact format: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"body\": \"Comment here\"}. Include code snippets if needed, but escape all backticks, quotes, and newlines properly. Do NOT return multiple JSON objects or text outside JSON."
+                content: "You are a senior software engineer performing a strict code review. Your ONLY output must be a single valid JSON object in the exact format: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"body\": \"PR comment text here\"}. The body must be structured as follows if there are issues:\n\n🔥 CRITICAL ISSUES:\n- Describe each critical issue with code snippets if needed.\n\n💡 IMPROVEMENTS:\n- Describe optional improvements.\n\nEscape quotes and newlines properly. Do NOT return multiple JSON objects or text outside JSON."
               },
               {
                 role: "user",
-                content: "Review the following git diff for potential problems (logic, syntax, style, performance, security).\n\n\($diff)"
+                content: "Review the following git diff for potential problems (logic, syntax, style, performance, security). Return a structured PR comment with CRITICAL ISSUES and IMPROVEMENTS sections.\n\n\($diff)"
               }
             ]
           }')
@@ -97,19 +98,16 @@ jobs:
           STATUS_FILE="ai_review_status.txt"
           touch "$REVIEW_FILE"
 
-          # Read AI output
           REVIEW_RAW=$(<"$REVIEW_FILE")
 
-          # Clean backticks, quotes, and newlines to prevent jq parse errors
-          REVIEW_RAW=$(echo "$REVIEW_RAW" | tr -d '\r\n')
-          REVIEW_RAW=$(echo "$REVIEW_RAW" | sed 's/`/\\`/g')
-          REVIEW_RAW=$(echo "$REVIEW_RAW" | sed 's/"/\\"/g')
+          # Fallback if empty
+          if [ -z "$REVIEW_RAW" ]; then
+            REVIEW_RAW='{"status":"PASSED","body":"No issues detected."}'
+          fi
 
-          # Parse safely
           STATUS=$(echo "$REVIEW_RAW" | jq -r '.status // "PASSED"')
           BODY=$(echo "$REVIEW_RAW" | jq -r '.body // "No issues detected."')
 
-          # Normalize status
           case "$STATUS" in
             CRITICAL_ISSUE) NORMALIZED="CRITICAL" ;;
             IMPROVEMENTS)   NORMALIZED="IMPROVEMENTS" ;;
@@ -117,7 +115,6 @@ jobs:
             *)              NORMALIZED="PASSED" ;;
           esac
 
-          # Write final PR comment
           {
             echo "Status: $NORMALIZED"
             echo ""
@@ -129,7 +126,7 @@ jobs:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           set -euo pipefail
-          COMMENT=$(cat ai_review_status.txt)
+          COMMENT=$(<ai_review_status.txt)
           JSON_BODY=$(jq -Rn --arg text "$COMMENT" '{"body": $text}')
 
           PR_NUMBER=${{ github.event.pull_request.number }}

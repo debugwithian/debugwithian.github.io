@@ -245,19 +245,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const headerOffset = 100; // Your offset for the fixed header
 
     // Click event - add active class
-    navLinks.forEach(link => {
-        link.addEventListener("click", (e) => {
-            navLinks.forEach(l => l.classList.remove("active"));
-            e.target.classList.add("active");
-        });
-    });
-
-    // Scroll event - update active class based on section in viewport
-    window.addEventListener("scroll", () => {
-        // --- Key Fix: Use document.documentElement.scrollHeight ---
-        const totalScrollHeight = document.documentElement.scrollHeight;
-        const viewportHeight = window.innerHeight; 
-        const currentScroll = window.scrollY;
+    navLinks.forEach(li
 
         // 1. Check if the user is at the very bottom of the page
         // Check if the scroll position + viewport height is close to the total scrollable height

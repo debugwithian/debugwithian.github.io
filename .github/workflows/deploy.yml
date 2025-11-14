@@ -62,7 +62,6 @@ jobs:
           set -euo pipefail
           DIFF=$(<diff.txt)
 
-          # Prepare payload: AI MUST return one valid JSON object with proper escaping
           PAYLOAD=$(jq -n --arg diff "$DIFF" '{
             model: "llama-3.1-8b-instant",
             messages: [
@@ -72,7 +71,7 @@ jobs:
               },
               {
                 role: "user",
-                content": ("Review the following git diff for potential problems (logic, syntax, style, performance, security).\n\n" + $diff)
+                content: "Review the following git diff for potential problems (logic, syntax, style, performance, security).\n\n\($diff)"
               }
             ]
           }')
@@ -82,7 +81,6 @@ jobs:
             -H "Authorization: Bearer $GROQ_API_KEY" \
             --data-raw "$PAYLOAD") || exit 1
 
-          # Extract JSON content safely
           REVIEW_RAW=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
 
           # Fallback if empty
@@ -90,7 +88,6 @@ jobs:
             REVIEW_RAW='{"status":"PASSED","body":"No issues detected."}'
           fi
 
-          # Save AI output
           echo "$REVIEW_RAW" | tee ai_review_output.txt
 
       - name: Analyze AI Review

@@ -70,7 +70,7 @@ jobs:
                 },
                 {
                   role: "user",
-                  content: ("Review the following git diff for potential problems (logic, syntax, style, performance, security). Syntax errors must always produce status CRITICAL_ISSUE.\n\n" + $diff)
+                  content: ("Review the following git diff for potential problems (logic, syntax, style, performance, security). Syntax errors must always produce status CRITICAL_ISSUE. Show the code and explain where is the error and if there are improvements on which area.\n\n" + $diff)
                 }
               ]
             }')

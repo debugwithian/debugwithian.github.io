@@ -48,8 +48,7 @@ jobs:
           if ! git diff $BASE HEAD --quiet; then
             git diff $BASE HEAD | head -n 2000 | head -c 50000 > diff.txt
           else
-            echo "No changes detected — skipping AI review."
-            echo "✅ No Issue on code" > ai_review_output.txt
+            echo '{"status":"PASSED","body":"No issues detected."}' > ai_review_output.txt
           fi
 
       - name: Run AI Code Review (Groq)
@@ -58,18 +57,20 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
           set -euo pipefail
+
           if [ -s diff.txt ]; then
             DIFF=$(<diff.txt)
+
             PAYLOAD=$(jq -n --arg diff "$DIFF" '{
               model: "llama-3.1-8b-instant",
               messages: [
                 {
                   role: "system",
-                  content: "Add Review Type on the First STRING/WORD: (CRITICAL_ISSUE, IMPROVEMENTS, etc) You are a senior software engineer performing a full, comprehensive code review. Format output for GitHub comments: provide only summary and suggested improvements. Syntax error in any language are categorized as critical issue/CRITICAL_ISSUE."
+                  content: "You are a senior software engineer performing a strict code review. Your ONLY output must be a valid JSON object in the exact format: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"body\": \"Comment here\"}. Do NOT output anything else. If any syntax error exists, status must be CRITICAL_ISSUE."
                 },
                 {
                   role: "user",
-                  content: ("Review the following git diff for potential problems (logic, syntax, style, performance, syntax error will be categorized as critical issue, and security):\n\n" + $diff)
+                  content: ("Review the following git diff for potential problems (logic, syntax, style, performance, security). Syntax errors must always produce status CRITICAL_ISSUE.\n\n" + $diff)
                 }
               ]
             }')
@@ -80,7 +81,12 @@ jobs:
               --data-raw "$PAYLOAD") || exit 1
 
             REVIEW=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
-            [ -z "$REVIEW" ] && REVIEW="✅ No Issue on code"
+
+            # Fallback if model failure
+            if [ -z "$REVIEW" ]; then
+              REVIEW='{"status":"PASSED","body":"No issues detected."}'
+            fi
+
             echo "$REVIEW" | tee ai_review_output.txt
           fi
 
@@ -91,18 +97,24 @@ jobs:
           STATUS_FILE="ai_review_status.txt"
           touch "$REVIEW_FILE"
 
-          if [ ! -s "$REVIEW_FILE" ]; then
-            echo "✅ No Issue on code" > "$STATUS_FILE"
-          elif grep -Eiq "^CRITICAL_ISSUE:" "$REVIEW_FILE"; then
+          # Extract status using jq safely
+          STATUS=$(jq -r '.status // empty' "$REVIEW_FILE" 2>/dev/null || echo "")
+
+          if [[ "$STATUS" == "CRITICAL_ISSUE" ]]; then
             echo "❌ Critical issue detected. Review failed." > "$STATUS_FILE"
-            cat "$REVIEW_FILE" >> "$STATUS_FILE"
-          elif grep -Eiq "needs improvement|suggestion|warning" "$REVIEW_FILE"; then
+          
+          elif [[ "$STATUS" == "IMPROVEMENTS" ]]; then
             echo "⚠️ AI review suggests improvements." > "$STATUS_FILE"
-            cat "$REVIEW_FILE" >> "$STATUS_FILE"
-          else
+
+          elif [[ "$STATUS" == "PASSED" ]]; then
             echo "✅ AI review passed — no critical issues detected." > "$STATUS_FILE"
-            cat "$REVIEW_FILE" >> "$STATUS_FILE"
+
+          else
+            echo "⚠️ AI review returned invalid or missing status." > "$STATUS_FILE"
           fi
+
+          # Append raw AI output to status
+          cat "$REVIEW_FILE" >> "$STATUS_FILE"
 
       - name: Post AI Review as PR Comment
         if: github.event_name == 'pull_request'
@@ -121,7 +133,7 @@ jobs:
                -H "Authorization: token $PAT_TOKEN" \
                -H "Content-Type: application/json" \
                -d "$JSON_BODY" \
-               $API_URL
+               "$API_URL"
 
   deploy:
     name: 🚀 Deploy to AWS

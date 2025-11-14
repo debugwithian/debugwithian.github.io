@@ -66,7 +66,7 @@ jobs:
             messages: [
               {
                 role: "system",
-                content: "You are a senior software engineer performing a strict code review. Your ONLY output must be a valid JSON object in the exact format: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"body\": \"Comment here\"}. Include the code blocks affected by CRITICAL or IMPROVEMENTS. If syntax errors exist, status must be CRITICAL_ISSUE."
+                content: "You are a senior software engineer performing a strict code review. Your ONLY output must be a valid JSON array of objects in the format: [{\"status\":\"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\",\"body\":\"Comment here\"}]. Include the code blocks affected by CRITICAL or IMPROVEMENTS. If syntax errors exist, status must be CRITICAL_ISSUE."
               },
               {
                 role: "user",
@@ -80,12 +80,16 @@ jobs:
             -H "Authorization: Bearer $GROQ_API_KEY" \
             --data-raw "$PAYLOAD") || exit 1
 
+          # Extract content
           REVIEW_RAW=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
           REVIEW_RAW=$(echo "$REVIEW_RAW" | tr -d '\n' | sed 's/\\n/ /g' | sed 's/\\"/"/g' | sed 's/^"//;s/"$//')
+          
+          # If AI did not return anything, mark as PASSED
           if [ -z "$REVIEW_RAW" ]; then
-            REVIEW_RAW='{"status":"PASSED","body":"No issues detected."}'
+            REVIEW_RAW='[{"status":"PASSED","body":"No issues detected."}]'
           fi
-          echo "$REVIEW_RAW" | tee ai_review_output.txt
+
+          echo "$REVIEW_RAW" > ai_review_output.txt
 
       - name: Analyze AI Review & Post PR Comment
         env:
@@ -94,17 +98,22 @@ jobs:
           set -euo pipefail
           REVIEW_FILE="ai_review_output.txt"
           STATUS_FILE="ai_review_status.txt"
-          touch "$REVIEW_FILE"
+          
+          # Read the AI output
+          RAW=$(cat "$REVIEW_FILE")
 
-          REVIEW_RAW=$(tr -d '\n' < "$REVIEW_FILE" | sed 's/\\n/ /g' | sed 's/\\"/"/g' | sed 's/^"//;s/"$//')
-          STATUS=$(echo "$REVIEW_RAW" | jq -r '.status // empty' 2>/dev/null || echo "")
-          BODY=$(echo "$REVIEW_RAW" | jq -r '.body // empty' 2>/dev/null || echo "")
-
-          if [[ -z "$STATUS" ]]; then
-            STATUS="PASSED"
-            BODY="No issues detected or could not parse AI output."
+          # Wrap concatenated JSON objects into an array if needed
+          if ! echo "$RAW" | jq empty 2>/dev/null; then
+            RAW=$(echo "$RAW" | sed 's/}{/},{/g' | awk '{print "[" $0 "]"}')
           fi
 
+          # Merge statuses
+          STATUS=$(echo "$RAW" | jq -r 'map(.status) | if index("CRITICAL_ISSUE") then "CRITICAL_ISSUE" elif index("IMPROVEMENTS") then "IMPROVEMENTS" else "PASSED" end')
+
+          # Combine all bodies
+          BODY=$(echo "$RAW" | jq -r 'map(.body) | join("\n\n")')
+
+          # Normalize status
           case "$STATUS" in
             CRITICAL_ISSUE) NORMALIZED="CRITICAL" ;;
             IMPROVEMENTS)   NORMALIZED="IMPROVEMENTS" ;;
@@ -112,12 +121,14 @@ jobs:
             *)              NORMALIZED="PASSED" ;;
           esac
 
+          # Save status and body
           {
             echo "Status: $NORMALIZED"
             echo ""
             echo "$BODY"
           } > "$STATUS_FILE"
 
+          # Post PR comment
           COMMENT=$(cat "$STATUS_FILE")
           JSON_BODY=$(jq -Rn --arg text "$COMMENT" '{"body": $text}')
           PR_NUMBER=${{ github.event.pull_request.number }}
@@ -130,6 +141,7 @@ jobs:
                -d "$JSON_BODY" \
                "$API_URL"
 
+          # Fail the workflow if CRITICAL issues exist
           if [[ "$NORMALIZED" == "CRITICAL" ]]; then
             echo "CRITICAL issues detected. Blocking merge."
             exit 1

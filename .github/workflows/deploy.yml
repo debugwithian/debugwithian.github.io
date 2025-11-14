@@ -89,7 +89,7 @@ jobs:
 
             echo "$REVIEW" | tee ai_review_output.txt
           fi
-
+      
       - name: Analyze AI Review
         run: |
           set -euo pipefail
@@ -97,24 +97,32 @@ jobs:
           STATUS_FILE="ai_review_status.txt"
           touch "$REVIEW_FILE"
 
-          # Extract status using jq safely
+          # Extract status safely
           STATUS=$(jq -r '.status // empty' "$REVIEW_FILE" 2>/dev/null || echo "")
+          # Extract body safely
+          BODY=$(jq -r '.body // empty' "$REVIEW_FILE" 2>/dev/null || echo "")
 
           if [[ "$STATUS" == "CRITICAL_ISSUE" ]]; then
-            echo "❌ Critical issue detected. Review failed." > "$STATUS_FILE"
-          
+            echo "Status: ❌ CRITICAL_ISSUE" > "$STATUS_FILE"
+            echo "" >> "$STATUS_FILE"
+            echo "$BODY" >> "$STATUS_FILE"
+
           elif [[ "$STATUS" == "IMPROVEMENTS" ]]; then
-            echo "⚠️ AI review suggests improvements." > "$STATUS_FILE"
+            echo "Status: ⚠️ IMPROVEMENTS" > "$STATUS_FILE"
+            echo "" >> "$STATUS_FILE"
+            echo "$BODY" >> "$STATUS_FILE"
 
           elif [[ "$STATUS" == "PASSED" ]]; then
-            echo "✅ AI review passed — no critical issues detected." > "$STATUS_FILE"
+            echo "Status: ✅ PASSED" > "$STATUS_FILE"
+            echo "" >> "$STATUS_FILE"
+            echo "$BODY" >> "$STATUS_FILE"
 
           else
-            echo "⚠️ AI review returned invalid or missing status." > "$STATUS_FILE"
+            echo "Status: INVALID" > "$STATUS_FILE"
+            echo "" >> "$STATUS_FILE"
+            echo "$BODY" >> "$STATUS_FILE"
           fi
 
-          # Append raw AI output to status
-          cat "$REVIEW_FILE" >> "$STATUS_FILE"
 
       - name: Post AI Review as PR Comment
         if: github.event_name == 'pull_request'

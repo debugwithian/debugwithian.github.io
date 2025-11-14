@@ -96,52 +96,56 @@ jobs:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           set -euo pipefail
+
           REVIEW_FILE="ai_review_output.txt"
           STATUS_FILE="ai_review_status.txt"
           
-          # Read the AI output
+          # Read AI output
           RAW=$(cat "$REVIEW_FILE")
-
+          
           # Wrap concatenated JSON objects into an array if needed
           if ! echo "$RAW" | jq empty 2>/dev/null; then
             RAW=$(echo "$RAW" | sed 's/}{/},{/g' | awk '{print "[" $0 "]"}')
           fi
-
-          # Merge statuses
+          
+          # Merge statuses: CRITICAL_ISSUE > IMPROVEMENTS > PASSED
           STATUS=$(echo "$RAW" | jq -r 'map(.status) | if index("CRITICAL_ISSUE") then "CRITICAL_ISSUE" elif index("IMPROVEMENTS") then "IMPROVEMENTS" else "PASSED" end')
-
-          # Combine all bodies
+          
+          # Combine all bodies safely
           BODY=$(echo "$RAW" | jq -r 'map(.body) | join("\n\n")')
-
-          # Normalize status
+          
+          # Normalize status for workflow logic
           case "$STATUS" in
             CRITICAL_ISSUE) NORMALIZED="CRITICAL" ;;
             IMPROVEMENTS)   NORMALIZED="IMPROVEMENTS" ;;
             PASSED)         NORMALIZED="PASSED" ;;
             *)              NORMALIZED="PASSED" ;;
           esac
-
-          # Save status and body
+          
+          # Save status and body to file
           {
             echo "Status: $NORMALIZED"
             echo ""
             echo "$BODY"
           } > "$STATUS_FILE"
-
-          # Post PR comment
+          
+          # Safely escape content for GitHub API
           COMMENT=$(cat "$STATUS_FILE")
-          JSON_BODY=$(jq -Rn --arg text "$COMMENT" '{"body": $text}')
+          JSON_BODY=$(jq -n --arg text "$COMMENT" '{body: $text}')
+          
+          # PR info
           PR_NUMBER=${{ github.event.pull_request.number }}
           REPO=${{ github.repository }}
           API_URL="https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments"
-
+          
+          # Post PR comment
           curl -sS -X POST \
                -H "Authorization: token $PAT_TOKEN" \
                -H "Content-Type: application/json" \
                -d "$JSON_BODY" \
                "$API_URL"
-
-          # Fail the workflow if CRITICAL issues exist
+          
+          # Fail workflow if CRITICAL issues exist
           if [[ "$NORMALIZED" == "CRITICAL" ]]; then
             echo "CRITICAL issues detected. Blocking merge."
             exit 1

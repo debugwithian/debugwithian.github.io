@@ -62,36 +62,35 @@ jobs:
           set -euo pipefail
           DIFF=$(<diff.txt)
 
-          # Prepare payload
+          # Prepare payload: AI MUST return one valid JSON object with proper escaping
           PAYLOAD=$(jq -n --arg diff "$DIFF" '{
             model: "llama-3.1-8b-instant",
             messages: [
               {
                 role: "system",
-                content: "You are a senior software engineer performing a strict code review. Your ONLY output must be a single valid JSON object in the exact format: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"body\": \"Comment here\"}. Include code blocks for CRITICAL or IMPROVEMENTS. Do NOT return multiple JSON objects or text outside JSON."
+                content: "You are a senior software engineer performing a strict code review. Your ONLY output must be a single valid JSON object in the exact format: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"body\": \"Comment here\"}. Include code snippets if needed, but escape all backticks, quotes, and newlines properly. Do NOT return multiple JSON objects or text outside JSON."
               },
               {
                 role: "user",
-                content: ("Review the following git diff for potential problems (logic, syntax, style, performance, security).\n\n" + $diff)
+                content": ("Review the following git diff for potential problems (logic, syntax, style, performance, security).\n\n" + $diff)
               }
             ]
           }')
 
-          # Call AI API
           RAW_RESPONSE=$(curl -sS --fail https://api.groq.com/openai/v1/chat/completions \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $GROQ_API_KEY" \
             --data-raw "$PAYLOAD") || exit 1
 
-          # Extract single JSON content
+          # Extract JSON content safely
           REVIEW_RAW=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
-          REVIEW_RAW=$(echo "$REVIEW_RAW" | tr -d '\n' | sed 's/\\n/ /g' | sed 's/\\"/"/g' | sed 's/^"//;s/"$//')
 
-          # Fallback
+          # Fallback if empty
           if [ -z "$REVIEW_RAW" ]; then
             REVIEW_RAW='{"status":"PASSED","body":"No issues detected."}'
           fi
 
+          # Save AI output
           echo "$REVIEW_RAW" | tee ai_review_output.txt
 
       - name: Analyze AI Review
@@ -101,11 +100,19 @@ jobs:
           STATUS_FILE="ai_review_status.txt"
           touch "$REVIEW_FILE"
 
-          # Parse JSON safely
-          STATUS=$(jq -r '.status // "PASSED"' "$REVIEW_FILE")
-          BODY=$(jq -r '.body // "No issues detected."' "$REVIEW_FILE")
+          # Read AI output
+          REVIEW_RAW=$(<"$REVIEW_FILE")
 
-          # Normalize status label
+          # Clean backticks, quotes, and newlines to prevent jq parse errors
+          REVIEW_RAW=$(echo "$REVIEW_RAW" | tr -d '\r\n')
+          REVIEW_RAW=$(echo "$REVIEW_RAW" | sed 's/`/\\`/g')
+          REVIEW_RAW=$(echo "$REVIEW_RAW" | sed 's/"/\\"/g')
+
+          # Parse safely
+          STATUS=$(echo "$REVIEW_RAW" | jq -r '.status // "PASSED"')
+          BODY=$(echo "$REVIEW_RAW" | jq -r '.body // "No issues detected."')
+
+          # Normalize status
           case "$STATUS" in
             CRITICAL_ISSUE) NORMALIZED="CRITICAL" ;;
             IMPROVEMENTS)   NORMALIZED="IMPROVEMENTS" ;;
@@ -113,7 +120,7 @@ jobs:
             *)              NORMALIZED="PASSED" ;;
           esac
 
-          # Write PR comment
+          # Write final PR comment
           {
             echo "Status: $NORMALIZED"
             echo ""

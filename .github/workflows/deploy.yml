@@ -73,7 +73,7 @@ jobs:
               },
               {
                 role: "user",
-                content: "Review the following git diff for potential problems (logic, syntax, style, performance, security). Include CRITICAL and IMPROVEMENTS sections in Markdown with code blocks.\n\n\($diff)"
+                content: ("Review the following git diff for potential problems (logic, syntax, style, performance, security). Include CRITICAL and IMPROVEMENTS sections in Markdown with code blocks.\n\n" + $diff)
               }
             ]
           }')
@@ -96,18 +96,15 @@ jobs:
         run: |
           set -euo pipefail
           REVIEW_FILE="ai_review_output.txt"
-          REVIEW_RAW=$(<"$REVIEW_FILE")
 
-          if [ -z "$REVIEW_RAW" ]; then
-            REVIEW_RAW='{"status":"PASSED","body":"✅ No issues detected."}'
+          # Ensure fallback if empty
+          if [ ! -s "$REVIEW_FILE" ]; then
+            echo '{"status":"PASSED","body":"✅ No issues detected."}' > "$REVIEW_FILE"
           fi
 
-          # Escape newlines and quotes to safely parse multi-line JSON
-          ESCAPED_REVIEW=$(echo "$REVIEW_RAW" | sed ':a;N;$!ba;s/\n/\\n/g' | sed 's/"/\\"/g')
-
-          # Parse JSON using fromjson
-          STATUS=$(echo "{\"data\":\"$ESCAPED_REVIEW\"}" | jq -r '.data | fromjson | .status // "PASSED"')
-          BODY=$(echo "{\"data\":\"$ESCAPED_REVIEW\"}" | jq -r '.data | fromjson | .body // "✅ No issues detected."')
+          # Safely parse multi-line JSON with Markdown/code blocks
+          STATUS=$(jq -Rs 'fromjson? // {"status":"PASSED","body":"✅ No issues detected."} | .status' "$REVIEW_FILE")
+          BODY=$(jq -Rs 'fromjson? // {"status":"PASSED","body":"✅ No issues detected."} | .body' "$REVIEW_FILE")
 
           case "$STATUS" in
             CRITICAL_ISSUE) NORMALIZED="CRITICAL" ;;

@@ -68,11 +68,11 @@ jobs:
               messages: [
                 {
                   role: "system",
-                  content: "You are a senior software engineer performing a strict code review. Body must contain line of codes that are impacted with your review. This would be added as a comment in the Merge/Pull Request - dont say it in your comment. Your ONLY output must be a valid JSON object in the exact format: {\"status\": \"CRITICAL|IMPROVEMENTS|PASSED\", \"body\": \"Comment here\"}. Do NOT output anything else. If any syntax error exists, status must be CRITICAL."
+                  content: "You are a senior software engineer performing a strict code review. Body must include the impacted lines in a Markdown code block (```diff```), plus concise explanations. This would be added as a comment in the PR. Your ONLY output must be valid JSON: {\"status\": \"CRITICAL|IMPROVEMENTS|PASSED\", \"body\": \"Comment here\"}. Do NOT output anything else. If any syntax error exists, status must be CRITICAL."
                 },
                 {
                   role: "user",
-                  content: ("Review the following git diff for potential problems (logic, syntax, style, performance, security). Syntax errors including on HTML like closing tags not properly closed etc. must always produce status CRITICAL.\n\n" + $diff)
+                  content: ("Review the following git diff for potential problems (logic, syntax, style, performance, security). Syntax errors including on HTML like closing tags not properly closed must always produce status CRITICAL.\n\n" + $diff)
                 }
               ]
             }')
@@ -93,8 +93,19 @@ jobs:
             # Validate JSON, fallback if invalid
             echo "$REVIEW_RAW" | jq . >/dev/null 2>&1 || REVIEW_RAW='{"status":"PASSED","body":"No issues detected."}'
 
-            # Save normalized JSON
-            echo "$REVIEW_RAW" | tee ai_review_output.txt
+            # Format body for GitHub PR: convert newlines to Markdown code blocks for impacted lines
+            BODY=$(echo "$REVIEW_RAW" | jq -r '.body' | awk '
+              BEGIN { print "```diff" }
+              { print } 
+              END { print "```" }
+            ')
+            
+            STATUS=$(echo "$REVIEW_RAW" | jq -r '.status')
+
+            # Save final JSON with formatted body
+            echo "{\"status\": \"$STATUS\", \"body\": $(
+              jq -Rn --arg body "$BODY" '$body'
+            )}" | tee ai_review_output.txt
           fi
 
       - name: Analyze AI Review
@@ -109,7 +120,7 @@ jobs:
           BODY=$(jq -r '.body // empty' "$REVIEW_FILE" 2>/dev/null || echo "")
 
           if [[ "$STATUS" == "CRITICAL" ]]; then
-            echo "Status: ❌ CRITICAL " > "$STATUS_FILE"
+            echo "Status: ❌ CRITICAL" > "$STATUS_FILE"
             REVIEW_RESULT="CRITICAL"
           elif [[ "$STATUS" == "IMPROVEMENTS" ]]; then
             echo "Status: ⚠️ IMPROVEMENTS" > "$STATUS_FILE"

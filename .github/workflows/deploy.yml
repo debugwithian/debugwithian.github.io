@@ -69,14 +69,15 @@ jobs:
             messages: [
               {
                 role: "system",
-                content: "You are a senior software engineer performing a strict code review. Return ONLY a single valid JSON object: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"body\": \"Markdown PR comment with code blocks\"}. Escape all quotes and newlines. Do not return multiple JSON objects or text outside JSON."
+                content: "You are a senior software engineer performing a strict code review. Return ONLY a single valid JSON object: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"body\": \"Markdown PR comment with code blocks\"}. Escape all quotes and newlines. Use proper preformatted code blocks (```html or ```js) for code examples."
               },
               {
                 role: "user",
-                content: ("Review the following git diff for potential problems (logic, syntax, style, performance, security). Include only one: CRITICAL if it is critial, IMPROVEMENTS if it is improvement section, OR Passed as no any issues - in Markdown with code blocks.\n\n" + $diff)
+                content: ("Review the following git diff for potential problems (logic, syntax, style, performance, security). Include only one: CRITICAL if critical, IMPROVEMENTS if improvements, or PASSED if no issues. Use Markdown with preformatted code blocks for any code snippets.\n\n" + $diff)
               }
             ]
           }')
+
 
           RAW_RESPONSE=$(curl -sS --fail https://api.groq.com/openai/v1/chat/completions \
             -H "Content-Type: application/json" \

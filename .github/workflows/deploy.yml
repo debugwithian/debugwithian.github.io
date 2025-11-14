@@ -69,7 +69,7 @@ jobs:
             messages: [
               {
                 role: "system",
-                content: "You are a senior software engineer performing a strict code review. Return ONLY a single valid JSON object: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"body\": \"Markdown PR comment with code blocks\"}. Escape all quotes and newlines. Use proper preformatted code blocks (```html or ```js) for code examples."
+                content: "You are a senior software engineer performing a strict code review. Return ONLY a single valid JSON object: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"body\": \"Markdown PR comment with code blocks\"}. Escape all quotes and newlines. Use proper preformatted code blocks (```html or ```js) for code examples this will be commented on github align the body contents to use correct formatting as \n is being read as an actual string rather than line break."
               },
               {
                 role: "user",

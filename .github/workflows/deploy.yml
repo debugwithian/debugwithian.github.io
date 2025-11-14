@@ -70,7 +70,7 @@ jobs:
                 },
                 {
                   role: "user",
-                  content: ("Review the following git diff for potential problems (logic, syntax, style, performance, security). Syntax errors must always produce status CRITICAL_ISSUE. Show the code and explain where is the error and if there are improvements on which area.\n\n" + $diff)
+                  content: ("Review the following git diff for potential problems (logic, syntax, style, performance, security). Syntax errors including on HTML like closing tags not properly closed etc. must always produce status CRITICAL_ISSUE.\n\n" + $diff)
                 }
               ]
             }')
@@ -80,16 +80,22 @@ jobs:
               -H "Authorization: Bearer $GROQ_API_KEY" \
               --data-raw "$PAYLOAD") || exit 1
 
-            REVIEW=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
+            # Extract AI content
+            REVIEW_RAW=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
 
-            # Fallback if model failure
-            if [ -z "$REVIEW" ]; then
-              REVIEW='{"status":"PASSED","body":"No issues detected."}'
+            # Normalize JSON: remove enclosing quotes if returned as string
+            if [[ "$REVIEW_RAW" =~ ^\".*\"$ ]]; then
+              REVIEW_RAW=$(echo "$REVIEW_RAW" | sed 's/^"//;s/"$//' | sed 's/\\"/"/g')
             fi
 
-            echo "$REVIEW" | tee ai_review_output.txt
+            # Fallback if empty
+            if [ -z "$REVIEW_RAW" ]; then
+              REVIEW_RAW='{"status":"PASSED","body":"No issues detected."}'
+            fi
+
+            echo "$REVIEW_RAW" | tee ai_review_output.txt
           fi
-      
+
       - name: Analyze AI Review
         run: |
           set -euo pipefail
@@ -97,32 +103,24 @@ jobs:
           STATUS_FILE="ai_review_status.txt"
           touch "$REVIEW_FILE"
 
-          # Extract status safely
+          # Extract status and body safely
           STATUS=$(jq -r '.status // empty' "$REVIEW_FILE" 2>/dev/null || echo "")
-          # Extract body safely
           BODY=$(jq -r '.body // empty' "$REVIEW_FILE" 2>/dev/null || echo "")
 
+          # Format output with if/elif/else
           if [[ "$STATUS" == "CRITICAL_ISSUE" ]]; then
-            echo "Status: ❌ CRITICAL_ISSUE" > "$STATUS_FILE"
-            echo "" >> "$STATUS_FILE"
-            echo "$BODY" >> "$STATUS_FILE"
-
+            echo "Status: CRITICAL_ISSUE" > "$STATUS_FILE"
           elif [[ "$STATUS" == "IMPROVEMENTS" ]]; then
-            echo "Status: ⚠️ IMPROVEMENTS" > "$STATUS_FILE"
-            echo "" >> "$STATUS_FILE"
-            echo "$BODY" >> "$STATUS_FILE"
-
+            echo "Status: IMPROVEMENTS" > "$STATUS_FILE"
           elif [[ "$STATUS" == "PASSED" ]]; then
-            echo "Status: ✅ PASSED" > "$STATUS_FILE"
-            echo "" >> "$STATUS_FILE"
-            echo "$BODY" >> "$STATUS_FILE"
-
+            echo "Status: PASSED" > "$STATUS_FILE"
           else
             echo "Status: INVALID" > "$STATUS_FILE"
-            echo "" >> "$STATUS_FILE"
-            echo "$BODY" >> "$STATUS_FILE"
           fi
 
+          # Append body under status
+          echo "" >> "$STATUS_FILE"
+          echo "$BODY" >> "$STATUS_FILE"
 
       - name: Post AI Review as PR Comment
         if: github.event_name == 'pull_request'
@@ -130,8 +128,8 @@ jobs:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           set -euo pipefail
-          REVIEW_CONTENT=$(cat ai_review_status.txt)
-          JSON_BODY=$(jq -Rn --arg text "$REVIEW_CONTENT" '{"body": $text}')
+          COMMENT=$(cat ai_review_status.txt)
+          JSON_BODY=$(jq -Rn --arg text "$COMMENT" '{"body": $text}')
 
           PR_NUMBER=${{ github.event.pull_request.number }}
           REPO=${{ github.repository }}

@@ -66,7 +66,9 @@ jobs:
             messages: [
               {
                 role: "system",
-                content: "You are a senior software engineer performing a strict code review. Your ONLY output must be a valid JSON array of objects in the format: [{\"status\":\"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\",\"body\":\"Comment here\"}]. Include the code blocks affected by CRITICAL or IMPROVEMENTS. If syntax errors exist, status must be CRITICAL_ISSUE."
+                content: "You are a senior software engineer performing a strict code review. Your ONLY output must be a single JSON object in the exact format: {\"status\":\"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\",\"body\":\"Comment here\"}. \
+          The body should be formatted as a readable PR comment. For file references, only include the filename (like index.html or script.js), not directories or paths. Include line numbers and issue descriptions. \
+          If syntax errors exist anywhere, status must be CRITICAL_ISSUE. Combine all issues into a single body string."
               },
               {
                 role: "user",
@@ -74,6 +76,7 @@ jobs:
               }
             ]
           }')
+
 
           RAW_RESPONSE=$(curl -sS --fail https://api.groq.com/openai/v1/chat/completions \
             -H "Content-Type: application/json" \

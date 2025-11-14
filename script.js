@@ -256,7 +256,7 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("scroll", () => {
         // --- Key Fix: Use document.documentElement.scrollHeight ---
         const totalScrollHeight = document.documentElement.scrollHeight;
-        const viewportHeight = window.innerHeight;
+        const viewportHeight = window.innerHeight; 
         const currentScroll = window.scrollY;
 
         // 1. Check if the user is at the very bottom of the page

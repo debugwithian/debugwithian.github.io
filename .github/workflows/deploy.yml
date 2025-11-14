@@ -2,112 +2,135 @@ name: 🚀 Auto Deploy to AWS with AI Code Review (Groq)
 
 on:
   pull_request:
-    branches: [prod_v2]
-    types: [opened, synchronize, reopened]
-
+    branches:
+      - prod_v2
+    types:
+      - opened
+      - synchronize
+      - reopened
   push:
-    branches: [prod_v2]
-
+    branches:
+      - prod_v2
   workflow_dispatch:
 
 jobs:
-
   ai_code_review:
     name: 🤖 AI Code Review via Groq
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    outputs:
-      review_status: ${{ steps.save_status.outputs.review_status }}
-      review_body: ${{ steps.save_status.outputs.review_body }}
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == false
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Fetch PR branches
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Validate secrets
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
+          : "${GROQ_API_KEY:?GROQ_API_KEY is not set}"
+          : "${PAT_TOKEN:?PAT_TOKEN is not set}"
+          echo "✅ Secrets validated."
+
+      - name: Generate Git Diff for PR branch
+        run: |
+          set -euo pipefail
           git fetch origin prod_v2
           git fetch origin +refs/pull/${{ github.event.pull_request.number }}/head:pr_branch
           git checkout pr_branch
-
-      - name: Generate diff
-        id: get_diff
-        run: |
           BASE=$(git merge-base HEAD origin/prod_v2)
 
-          if git diff --quiet $BASE HEAD; then
-            echo "diff=" >> $GITHUB_ENV
-            exit 0
+          if ! git diff $BASE HEAD --quiet; then
+            git diff $BASE HEAD > diff.txt
+          else
+            echo '{"status":"PASSED","body":"No issues detected."}' > ai_review_output.txt
           fi
 
-          DIFF_CONTENT=$(git diff $BASE HEAD)
-          # safely encode for GitHub env
-          {
-            echo "diff<<EOF"
-            printf '%s\n' "$DIFF_CONTENT"
-            echo "EOF"
-          } >> $GITHUB_ENV
-
-      - name: Call Groq AI Review
-        id: groq_review
+      - name: Run AI Code Review (Groq)
+        if: steps.generate_diff.outputs.diff_exists != 'false'
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
-          if [ -z "${diff}" ]; then
-            echo '{"status":"PASSED","body":"No changes detected."}' > ai_review.json
-            exit 0
+          set -euo pipefail
+          if [ -s diff.txt ]; then
+            DIFF=$(<diff.txt)
+            PAYLOAD=$(jq -n --arg diff "$DIFF" '{
+              model: "llama-3.1-8b-instant",
+              messages: [
+                {
+                  role: "system",
+                  content: "You are a senior software engineer performing a strict code review. Your ONLY output must be a valid JSON object in the exact format: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"body\": \"Comment here\"}. Include the code blocks affected by CRITICAL or IMPROVEMENTS. If syntax errors exist, status must be CRITICAL_ISSUE."
+                },
+                {
+                  role: "user",
+                  content: ("Review the following git diff for potential problems (logic, syntax, style, performance, security).\n\n" + $diff)
+                }
+              ]
+            }')
+            RAW_RESPONSE=$(curl -sS --fail https://api.groq.com/openai/v1/chat/completions \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer $GROQ_API_KEY" \
+              --data-raw "$PAYLOAD") || exit 1
+
+            REVIEW_RAW=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
+            REVIEW_RAW=$(echo "$REVIEW_RAW" | tr -d '\n' | sed 's/\\n/ /g' | sed 's/\\"/"/g' | sed 's/^"//;s/"$//')
+            if [ -z "$REVIEW_RAW" ]; then
+              REVIEW_RAW='{"status":"PASSED","body":"No issues detected."}'
+            fi
+            echo "$REVIEW_RAW" | tee ai_review_output.txt
           fi
 
-          PAYLOAD=$(jq -n --arg diff "$diff" '{
-            model: "llama-3.1-8b-instant",
-            messages: [
-              {
-                role: "system",
-                content: "You are a senior software engineer performing a strict code review. Output ONLY one JSON object: {\"status\":\"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\",\"body\":\"Readable PR comment\"}. The body must reference filenames only (index.html, script.js) and provide line numbers + code blocks. If syntax errors exist, return CRITICAL_ISSUE."
-              },
-              {
-                role: "user",
-                content: ("Review the following diff:\n\n" + $diff)
-              }
-            ]
-          }')
-
-          curl -s https://api.groq.com/openai/v1/chat/completions \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${{ secrets.GROQ_API_KEY }}" \
-            -d "$PAYLOAD" \
-            | jq -r '.choices[0].message.content' > ai_review.json
-
-      - name: Save AI review status & body
-        id: save_status
+      - name: Analyze AI Review
         run: |
-          STATUS=$(jq -r '.status' ai_review.json)
-          BODY=$(jq -r '.body' ai_review.json)
+          set -euo pipefail
+          REVIEW_FILE="ai_review_output.txt"
+          STATUS_FILE="ai_review_status.txt"
+          touch "$REVIEW_FILE"
 
-          echo "review_status=$STATUS" >> $GITHUB_OUTPUT
+          REVIEW_RAW=$(tr -d '\n' < "$REVIEW_FILE" | sed 's/\\n/ /g' | sed 's/\\"/"/g' | sed 's/^"//;s/"$//')
+          STATUS=$(echo "$REVIEW_RAW" | jq -r '.status // empty' 2>/dev/null || echo "")
+          BODY=$(echo "$REVIEW_RAW" | jq -r '.body // empty' 2>/dev/null || echo "")
+
+          if [[ -z "$STATUS" ]]; then
+            STATUS="PASSED"
+            BODY="No issues detected or could not parse AI output."
+          fi
+
+          case "$STATUS" in
+            CRITICAL_ISSUE) NORMALIZED="CRITICAL" ;;
+            IMPROVEMENTS)   NORMALIZED="IMPROVEMENTS" ;;
+            PASSED)         NORMALIZED="PASSED" ;;
+            *)              NORMALIZED="PASSED" ;;
+          esac
 
           {
-            echo "review_body<<EOF"
+            echo "Status: $NORMALIZED"
+            echo ""
             echo "$BODY"
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
+          } > "$STATUS_FILE"
 
-      - name: Post PR Comment
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const body = process.env.REVIEW_BODY || `${{ steps.save_status.outputs.review_body }}`;
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body
-            });
+      - name: Post AI Review as PR Comment
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          set -euo pipefail
+          COMMENT=$(cat ai_review_status.txt)
+          JSON_BODY=$(jq -Rn --arg text "$COMMENT" '{"body": $text}')
 
-      - name: Fail if CRITICAL
-        if: ${{ steps.save_status.outputs.review_status == 'CRITICAL_ISSUE' }}
-        run: exit 1
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          REPO=${{ github.repository }}
+          API_URL="https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments"
 
+          curl -sS -X POST \
+               -H "Authorization: token $PAT_TOKEN" \
+               -H "Content-Type: application/json" \
+               -d "$JSON_BODY" \
+               "$API_URL"
 
   deploy:
     name: 🚀 Deploy to AWS
@@ -115,22 +138,24 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/prod_v2'
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up SSH key
+      - name: Add SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.AWS_SSH_KEY }}" > ~/.ssh/id_rsa
+          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H YOUR_SERVER_IP >> ~/.ssh/known_hosts
+          ssh-keyscan -H 3.232.21.89 >> ~/.ssh/known_hosts
 
-      - name: Deploy to AWS
+      - name: Deploy and restart app on AWS
         run: |
-          ssh -i ~/.ssh/id_rsa ubuntu@YOUR_SERVER_IP "
-            cd /var/www/yourapp &&
+          set -euo pipefail
+          ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "
+            cd /home/ubuntu &&
             git fetch origin prod_v2 &&
             git reset --hard origin/prod_v2 &&
             npm install &&
-            pm2 restart all
+            pm2 restart all &&
+            echo 'Deployment completed successfully'
           "

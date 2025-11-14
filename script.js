@@ -271,30 +271,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return; // Exit the function to prevent the loop from overriding
         } 
         
-        // 3. Proceed with the standard section-in-viewport logic
-        // Only run this if we are NOT at the bottom
-        let scrollPos = currentScroll + headerOffset;
-        let foundActive = false;
-        
-        // Loop backwards for better section detection, especially for small sections
-        for (let i = sections.length - 1; i >= 0; i--) {
-            const section = sections[i];
-            
-            if (section.offsetTop <= scrollPos) {
-                // If the section's top is visible (or above the scrollPos line)
-                navLinks.forEach(link => link.classList.remove("active"));
-                navLinks[i].classList.add("active");
-                foundActive = true;
-                break; // Stop loop once the highest section is found
-            }
-        }
-        
-        // Optional: If the user is scrolling above the first section (top of the page)
-        if (!foundActive && currentScroll < headerOffset) {
-            navLinks.forEach(link => link.classList.remove("active"));
-            navLinks[0].classList.add("active");
-        }
-    });
+        // 3. Pr
 });
 
 document.addEventListener("visibilitychange", ()=>{ if(document.hidden) localStorage.setItem("rbid_minigame_score", score); });

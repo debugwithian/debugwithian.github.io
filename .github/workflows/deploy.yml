@@ -69,11 +69,11 @@ jobs:
             messages: [
               {
                 role: "system",
-                content: "You are a senior software engineer performing a strict code review. Return ONLY a single valid JSON object: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"body\": \"PR comment with Markdown\"}. The body must use Markdown formatting:\n\n**🔥 CRITICAL ISSUES:**\n- Issue 1\n- Issue 2\n\n**💡 IMPROVEMENTS:**\n- Improvement 1\n- Improvement 2\n\nUse ```code``` blocks for code snippets. Escape quotes and newlines. Do not return multiple JSON objects or text outside JSON."
+                content: "You are a senior software engineer performing a strict code review. Return ONLY a single valid JSON object: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"body\": \"Markdown PR comment with code blocks\"}. Escape all quotes and newlines. Do not return multiple JSON objects or text outside JSON."
               },
               {
                 role: "user",
-                content: "Review the following git diff for potential problems (logic, syntax, style, performance, security). Return a Markdown-structured PR comment with CRITICAL and IMPROVEMENTS sections, using code blocks for code snippets.\n\n\($diff)"
+                content: "Review the following git diff for potential problems (logic, syntax, style, performance, security). Include CRITICAL and IMPROVEMENTS sections in Markdown with code blocks.\n\n\($diff)"
               }
             ]
           }')
@@ -102,8 +102,12 @@ jobs:
             REVIEW_RAW='{"status":"PASSED","body":"✅ No issues detected."}'
           fi
 
-          STATUS=$(echo "$REVIEW_RAW" | jq -r '.status // "PASSED"')
-          BODY=$(echo "$REVIEW_RAW" | jq -r '.body // "✅ No issues detected."')
+          # Escape newlines and quotes to safely parse multi-line JSON
+          ESCAPED_REVIEW=$(echo "$REVIEW_RAW" | sed ':a;N;$!ba;s/\n/\\n/g' | sed 's/"/\\"/g')
+
+          # Parse JSON using fromjson
+          STATUS=$(echo "{\"data\":\"$ESCAPED_REVIEW\"}" | jq -r '.data | fromjson | .status // "PASSED"')
+          BODY=$(echo "{\"data\":\"$ESCAPED_REVIEW\"}" | jq -r '.data | fromjson | .body // "✅ No issues detected."')
 
           case "$STATUS" in
             CRITICAL_ISSUE) NORMALIZED="CRITICAL" ;;
@@ -115,7 +119,7 @@ jobs:
           {
             echo "Status: $NORMALIZED"
             echo ""
-            echo "$BODY"
+            echo -e "$BODY"
           } > ai_review_status.txt
 
           echo "review_status=$NORMALIZED" >> $GITHUB_OUTPUT

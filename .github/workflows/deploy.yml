@@ -15,9 +15,11 @@ on:
 
 jobs:
   ai_code_review:
-    name: 🤖 AI Code Review via Groq
+    name: 🤖 AI Code Review
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && github.event.pull_request.merged == false
+    outputs:
+      review_status: ${{ steps.set_review_status.outputs.review_status }}
 
     steps:
       - name: Checkout code
@@ -50,7 +52,7 @@ jobs:
             git diff $BASE HEAD > diff.txt
             echo "diff_exists=true" >> $GITHUB_OUTPUT
           else
-            echo '{"status":"PASSED","body":"No issues detected."}' > ai_review_output.txt
+            echo '{"status":"PASSED","body":"✅ No issues detected."}' > ai_review_output.txt
             echo "diff_exists=false" >> $GITHUB_OUTPUT
           fi
 
@@ -62,17 +64,16 @@ jobs:
           set -euo pipefail
           DIFF=$(<diff.txt)
 
-          # Prepare AI payload: structured PR comment
           PAYLOAD=$(jq -n --arg diff "$DIFF" '{
             model: "llama-3.1-8b-instant",
             messages: [
               {
                 role: "system",
-                content: "You are a senior software engineer performing a strict code review. Your ONLY output must be a single valid JSON object in the exact format: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"body\": \"PR comment text here\"}. The body must be structured as follows if there are issues:\n\n🔥 CRITICAL ISSUES:\n- Describe each critical issue with code snippets if needed.\n\n💡 IMPROVEMENTS:\n- Describe optional improvements.\n\nEscape quotes and newlines properly. Do NOT return multiple JSON objects or text outside JSON."
+                content: "You are a senior software engineer performing a strict code review. Return ONLY a single valid JSON object: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"body\": \"PR comment with Markdown\"}. The body must use Markdown formatting:\n\n**🔥 CRITICAL ISSUES:**\n- Issue 1\n- Issue 2\n\n**💡 IMPROVEMENTS:**\n- Improvement 1\n- Improvement 2\n\nUse ```code``` blocks for code snippets. Escape quotes and newlines. Do not return multiple JSON objects or text outside JSON."
               },
               {
                 role: "user",
-                content: "Review the following git diff for potential problems (logic, syntax, style, performance, security). Return a structured PR comment with CRITICAL ISSUES and IMPROVEMENTS sections.\n\n\($diff)"
+                content: "Review the following git diff for potential problems (logic, syntax, style, performance, security). Return a Markdown-structured PR comment with CRITICAL and IMPROVEMENTS sections, using code blocks for code snippets.\n\n\($diff)"
               }
             ]
           }')
@@ -84,29 +85,25 @@ jobs:
 
           REVIEW_RAW=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
 
-          # Fallback if empty
           if [ -z "$REVIEW_RAW" ]; then
-            REVIEW_RAW='{"status":"PASSED","body":"No issues detected."}'
+            REVIEW_RAW='{"status":"PASSED","body":"✅ No issues detected."}'
           fi
 
           echo "$REVIEW_RAW" | tee ai_review_output.txt
 
       - name: Analyze AI Review
+        id: set_review_status
         run: |
           set -euo pipefail
           REVIEW_FILE="ai_review_output.txt"
-          STATUS_FILE="ai_review_status.txt"
-          touch "$REVIEW_FILE"
-
           REVIEW_RAW=$(<"$REVIEW_FILE")
 
-          # Fallback if empty
           if [ -z "$REVIEW_RAW" ]; then
-            REVIEW_RAW='{"status":"PASSED","body":"No issues detected."}'
+            REVIEW_RAW='{"status":"PASSED","body":"✅ No issues detected."}'
           fi
 
           STATUS=$(echo "$REVIEW_RAW" | jq -r '.status // "PASSED"')
-          BODY=$(echo "$REVIEW_RAW" | jq -r '.body // "No issues detected."')
+          BODY=$(echo "$REVIEW_RAW" | jq -r '.body // "✅ No issues detected."')
 
           case "$STATUS" in
             CRITICAL_ISSUE) NORMALIZED="CRITICAL" ;;
@@ -119,7 +116,9 @@ jobs:
             echo "Status: $NORMALIZED"
             echo ""
             echo "$BODY"
-          } > "$STATUS_FILE"
+          } > ai_review_status.txt
+
+          echo "review_status=$NORMALIZED" >> $GITHUB_OUTPUT
 
       - name: Post AI Review as PR Comment
         env:
@@ -138,6 +137,12 @@ jobs:
                -H "Content-Type: application/json" \
                -d "$JSON_BODY" \
                "$API_URL"
+
+      - name: Fail PR if Critical
+        if: steps.set_review_status.outputs.review_status == 'CRITICAL'
+        run: |
+          echo "❌ CRITICAL issues detected. Merge blocked until resolved."
+          exit 1
 
   deploy:
     name: 🚀 Deploy to AWS

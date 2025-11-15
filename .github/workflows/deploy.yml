@@ -69,7 +69,7 @@ jobs:
             messages: [
               {
                 role: "system",
-                content: "You are a senior software engineer performing a strict code review. Return ONLY a single valid JSON object with two keys: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"content\": \"Markdown PR comment including headings, bullets, and code blocks\"}. Do NOT return anything outside JSON. Only one status per response. Include full Markdown formatting with headings, bullets, and code blocks."
+                content: "You are a senior software engineer performing a strict code review. Return ONLY a single valid JSON object with two keys: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"content\": \"Markdown PR comment including headings, bullets, and code blocks\"}. Do NOT return anything outside JSON. Only one status per response. Include full Markdown formatting with headings, bullets, and code blocks. Escape value if necessary as this should be a fully correct json output"
               },
               {
                 role: "user",
@@ -98,7 +98,8 @@ jobs:
         run: |
           set -euo pipefail
           REVIEW_FILE="ai_review_output.txt"
-          RAW=$(<"$REVIEW_FILE")
+          RAW=$(printf "%s" "$RAW" | sed -E 's/```json//g;s/```//g')
+          SAFE_CONTENT=$(jq -Rs <<<"$RAW")
 
           echo "🔹 Raw AI output:"
           echo "$RAW"
@@ -132,7 +133,7 @@ jobs:
           echo "----------------------------------------"
 
           # Save cleaned JSON back to file, preserving full Markdown
-          printf '{"status":"%s","content":%s}\n' "$NORMALIZED" "$(jq -Rs <<<"$EXTRACTED_BODY")" > "$REVIEW_FILE"
+          printf '{"status":"%s","content":%s}\n' "$NORMALIZED" "$SAFE_CONTENT" > "$REVIEW_FILE"
           echo "✅ Cleaned JSON saved to $REVIEW_FILE"
 
           # Human-readable PR comment

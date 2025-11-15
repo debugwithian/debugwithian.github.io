@@ -102,57 +102,59 @@ jobs:
             echo '{"status":"PASSED","body":"✅ No issues detected."}' > "$REVIEW_FILE"
           fi
 
-          # Ensure valid JSON (wrap raw Markdown if AI returned invalid JSON)
-          # Check if AI returned valid JSON
-          if ! jq empty "$REVIEW_FILE" >/dev/null 2>&1; then
-            RAW=$(<"$REVIEW_FILE")
+          RAW=$(<"$REVIEW_FILE")
 
-            # Detect status from raw text
-            DETECTED_STATUS=$(echo "$RAW" | grep -o '"status"[ ]*:[ ]*"[^"]*"' | sed 's/.*"status"[ ]*:[ ]*"\([^"]*\)".*/\1/' || true)
-            [ -z "$DETECTED_STATUS" ] && DETECTED_STATUS="PASSED"
+          #
+          # --- 1. Detect status
+          #
+          DETECTED_STATUS=$(echo "$RAW" \
+            | grep -o '"status"[ ]*:[ ]*"[^"]*"' \
+            | sed 's/.*"status"[ ]*:[ ]*"\([^"]*\)".*/\1/' || true)
+          [ -z "$DETECTED_STATUS" ] && DETECTED_STATUS="PASSED"
 
-            # Try extracting the body using jq raw-input mode (handles multiline!)
-            EXTRACTED_BODY=$(printf "%s" "$RAW" | jq -R 'capture("\"body\"[ ]*:[ ]*\"(?<b>.*?)\""; "m") | .b' 2>/dev/null || echo "")
-
-            # If jq couldn’t extract body → fallback: try parsing as JSON
-            if [ -z "$EXTRACTED_BODY" ]; then
-              EXTRACTED_BODY=$(echo "$RAW" | jq -r '.body' 2>/dev/null || echo "")
-            fi
-
-            # Final fallback → use raw AI response
-            [ -z "$EXTRACTED_BODY" ] && EXTRACTED_BODY="$RAW"
-
-            # Safely escape body
-            SAFE_BODY=$(printf "%s" "$EXTRACTED_BODY" | jq -Rs '.')
-
-            echo "{\"status\":\"$DETECTED_STATUS\",\"body\":$SAFE_BODY}" > "$REVIEW_FILE"
+          #
+          # --- 2. Extract body
+          #
+          EXTRACTED_BODY=$(echo "$RAW" | jq -r '.body' 2>/dev/null || echo "")
+          if [ -z "$EXTRACTED_BODY" ] || [ "$EXTRACTED_BODY" = "null" ]; then
+            EXTRACTED_BODY="$RAW"
+            EXTRACTED_BODY=$(echo "$EXTRACTED_BODY" | sed '/^{[ ]*"status"*/,/^}/d')
+            EXTRACTED_BODY=$(echo "$EXTRACTED_BODY" | sed '/^```.*$/d;/^json$/d;/^html$/d')
+            EXTRACTED_BODY=$(echo "$EXTRACTED_BODY" | sed '/^[[:space:]]*$/d')
           fi
 
+          #
+          # --- 3. Prepend status
+          #
+          EXTRACTED_BODY="Status: $DETECTED_STATUS\n\n$EXTRACTED_BODY"
 
+          #
+          # --- 4. Escape for JSON
+          #
+          SAFE_BODY=$(printf "%s" "$EXTRACTED_BODY" | jq -Rs '.')
 
-          # Extract status safely
-          RAW_STATUS=$(jq -r '.status // "PASSED"' "$REVIEW_FILE")
+          #
+          # --- 5. Write JSON without EOF
+          #
+          printf '{"status":"%s","body":%s}\n' "$DETECTED_STATUS" "$SAFE_BODY" > "$REVIEW_FILE"
 
-          # Extract body safely, preserving Markdown
-          BODY=$(jq -r '.body // ""' "$REVIEW_FILE")
-
+          #
+          # --- 6. Normalize status for workflow
+          #
           NORMALIZED="PASSED"
-          for s in ${RAW_STATUS//|/ }; do
-            case "$s" in
-              CRITICAL_ISSUE) NORMALIZED="CRITICAL"; break ;;
-              IMPROVEMENTS)   [ "$NORMALIZED" != "CRITICAL" ] && NORMALIZED="IMPROVEMENTS" ;;
-              PASSED)         [ "$NORMALIZED" != "CRITICAL" ] && [ "$NORMALIZED" != "IMPROVEMENTS" ] && NORMALIZED="PASSED" ;;
-            esac
-          done
+          case "$DETECTED_STATUS" in
+            CRITICAL* ) NORMALIZED="CRITICAL" ;;
+            IMPROVEMENTS ) NORMALIZED="IMPROVEMENTS" ;;
+            PASSED ) NORMALIZED="PASSED" ;;
+            * ) NORMALIZED="IMPROVEMENTS" ;;
+          esac
 
-          # Save PR comment
-          {
-            echo "Status: $NORMALIZED"
-            echo ""
-            echo "$BODY"
-          } > ai_review_status.txt
-
+          #
+          # --- 7. Save PR comment
+          #
+          echo -e "$EXTRACTED_BODY" > ai_review_status.txt
           echo "review_status=$NORMALIZED" >> $GITHUB_OUTPUT
+
 
       - name: Post AI Review as PR Comment
         env:

@@ -148,7 +148,7 @@ jobs:
         run: |
           set -euo pipefail
           COMMENT=$(<ai_review_status.txt)
-          JSON_BODY=$(jq -Rs --arg text "$COMMENT" '{content: $text}')
+          JSON_BODY=$(jq -Rs --arg text "$COMMENT" '{body: $text}')
           PR_NUMBER=${{ github.event.pull_request.number }}
           REPO=${{ github.repository }}
           API_URL="https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments"

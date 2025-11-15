@@ -69,7 +69,7 @@ jobs:
             messages: [
               {
                 role: "system",
-                content: "You are a senior software engineer performing a strict code review. Return ONLY a single valid JSON object: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"body\": \"Markdown PR comment\"}. Format all code snippets with triple backticks and language hints (```html, ```js), use actual newlines, escape quotes properly, and include headings, bullet points, and preformatted code blocks. Do not return text outside JSON. Output will be Forcedly & Always return always in JSON format"
+                content: "You are a senior software engineer performing a strict code review. Return ONLY a single valid JSON object: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"content\": \"Markdown PR comment\"}. Format all code snippets with triple backticks and language hints (```html, ```js), use actual newlines, escape quotes properly, and include headings, bullet points, and preformatted code blocks. Do not return text outside JSON. Output will be Forcedly & Always return always in JSON format"
               },
               {
                 role: "user",
@@ -89,7 +89,7 @@ jobs:
           REVIEW_RAW=$(printf "%s" "$REVIEW_RAW" | sed -E 's/```json//g;s/```//g')
 
           if [ -z "$REVIEW_RAW" ]; then
-            REVIEW_RAW='{"status":"PASSED","body":"✅ No issues detected."}'
+            REVIEW_RAW='{"status":"PASSED","content":"✅ No issues detected."}'
           fi
 
           echo "$REVIEW_RAW" | tee ai_review_output.txt
@@ -101,78 +101,46 @@ jobs:
           REVIEW_FILE="ai_review_output.txt"
           RAW=$(<"$REVIEW_FILE")
 
-          ###########################################################################
-          # 1. Extract ONLY the first valid JSON object from the AI response
-          ###########################################################################
-          INNER_JSON=$(printf "%s" "$RAW" | grep -oP '\{(?:[^{}]|(?R))*\}' | head -n 1 || true)
+          # --- 1. Extract JSON object from AI response
+          INNER_JSON=$(echo "$RAW" | grep -oP '\{.*\}' | jq -c '.' 2>/dev/null || true)
 
-          if [ -n "${INNER_JSON:-}" ]; then
-              DETECTED_STATUS=$(jq -r '.status // empty' <<< "$INNER_JSON" 2>/dev/null || echo "IMPROVEMENTS")
-              EXTRACTED_BODY=$(jq -r '.body // empty' <<< "$INNER_JSON" 2>/dev/null || printf "%s" "$RAW")
+          if [ -n "$INNER_JSON" ]; then
+              DETECTED_STATUS=$(jq -r '.status' <<< "$INNER_JSON")
+              EXTRACTED_BODY=$(jq -r '.body // .content // empty' <<< "$INNER_JSON")
           else
               DETECTED_STATUS="PASSED"
               EXTRACTED_BODY="$RAW"
           fi
 
-          ###########################################################################
-          # 2. Remove ALL fenced code blocks (```json, ```html, ```js, ANYTHING)
-          ###########################################################################
-          EXTRACTED_BODY=$(printf "%s" "$EXTRACTED_BODY" | sed -E '/^```/,/^```$/d')
+          # --- 2. Remove nested ```json``` fences inside content
+          EXTRACTED_BODY=$(echo "$EXTRACTED_BODY" | sed -E '/^```json/,/^```$/d')
 
-          ###########################################################################
-          # 3. Remove ANY nested JSON inside the body (multi-line safe)
-          ###########################################################################
-          EXTRACTED_BODY=$(printf "%s" "$EXTRACTED_BODY" | awk '
-            BEGIN { in_json=0 }
-            /^\{/ { in_json=1 }
-            in_json==0 { print }
-            /\}/ { in_json=0 }
-          ')
-
-          ###########################################################################
-          # 4. Remove stray HTML tags the AI may output
-          ###########################################################################
-          EXTRACTED_BODY=$(printf "%s" "$EXTRACTED_BODY" | sed -E 's/<[^>]+>//g')
-
-          ###########################################################################
-          # 5. Clean up broken escapes, double quotes, odd trailing slashes
-          ###########################################################################
-          EXTRACTED_BODY=$(printf "%s" "$EXTRACTED_BODY" \
-              | sed -E 's/\\n/\n/g' \
-              | sed -E 's/\\r/\r/g' \
-              | sed -E 's/\\"/"/g' \
-              | sed -E 's/\\\\/\\/g')
-
-          ###########################################################################
-          # 6. Normalize status
-          ###########################################################################
+          # --- 3. Normalize status to a single one
           case "$DETECTED_STATUS" in
-            CRITICAL* ) NORMALIZED="CRITICAL_ISSUE" ;;
+            CRITICAL* ) NORMALIZED="CRITICAL" ;;
             IMPROVEMENTS ) NORMALIZED="IMPROVEMENTS" ;;
             PASSED ) NORMALIZED="PASSED" ;;
             * ) NORMALIZED="IMPROVEMENTS" ;;
           esac
 
-          ###########################################################################
-          # 7. Escape body safely for JSON output
-          ###########################################################################
+          # --- 4. Escape for JSON
           SAFE_BODY=$(printf "%s" "$EXTRACTED_BODY" | jq -Rs '.')
 
-          ###########################################################################
-          # 8. Write CLEAN JSON back to file
-          ###########################################################################
-          printf '{"status":"%s","body":%s}\n' "$NORMALIZED" "$SAFE_BODY" > "$REVIEW_FILE"
+          # --- 5. Save cleaned JSON using "content"
+          printf '{"status":"%s","content":%s}\n' "$NORMALIZED" "$SAFE_BODY" > "$REVIEW_FILE"
 
-          ###########################################################################
-          # 9. Write human readable PR comment
-          ###########################################################################
+          # --- 6. Save PR comment ALWAYS as:
+          # Status: X
+          #
+          # <content>
           {
             echo "Status: $NORMALIZED"
             echo
             printf "%s" "$EXTRACTED_BODY"
           } > ai_review_status.txt
 
-          echo "review_status=$NORMALIZED" >> "$GITHUB_OUTPUT"
+          echo "review_status=$NORMALIZED" >> $GITHUB_OUTPUT
+
 
       - name: Post AI Review as PR Comment
         env:
@@ -180,7 +148,7 @@ jobs:
         run: |
           set -euo pipefail
           COMMENT=$(<ai_review_status.txt)
-          JSON_BODY=$(jq -Rs --arg text "$COMMENT" '{body: $text}')
+          JSON_BODY=$(jq -Rs --arg text "$COMMENT" '{content: $text}')
           PR_NUMBER=${{ github.event.pull_request.number }}
           REPO=${{ github.repository }}
           API_URL="https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments"

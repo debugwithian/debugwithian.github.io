@@ -69,7 +69,7 @@ jobs:
             messages: [
               {
                 role: "system",
-                content: "You are a senior software engineer performing a strict code review. Return ONLY a single valid JSON object - please validate return it in the correct JSON Format: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"body\": \"Markdown PR comment\"}. Format all code snippets with triple backticks and language hints (```html, ```js), use actual newlines, escape quotes properly, and include headings, bullet points, and preformatted code blocks. Do not return text outside JSON."
+                content: "You are a senior software engineer performing a strict code review. Return ONLY a single valid JSON object: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"body\": \"Markdown PR comment\"}. Format all code snippets with triple backticks and language hints (```html, ```js), use actual newlines, escape quotes properly, and include headings, bullet points, and preformatted code blocks. Do not return text outside JSON."
               },
               {
                 role: "user",
@@ -96,33 +96,35 @@ jobs:
         run: |
           set -euo pipefail
           REVIEW_FILE="ai_review_output.txt"
-
-          # Read AI response
           RAW=$(<"$REVIEW_FILE")
 
-          # --- 1. Try to extract JSON object from AI response
+          # --- Extract JSON object from AI response
           INNER_JSON=$(echo "$RAW" | sed -n '/{/,/}/p' | jq -c '.' 2>/dev/null || true)
 
           if [ -n "$INNER_JSON" ]; then
-            # Extract AI-provided status and body
-            DETECTED_STATUS=$(jq -r '.status' <<< "$INNER_JSON")
-            EXTRACTED_BODY=$(jq -r '.body' <<< "$INNER_JSON")
+              DETECTED_STATUS=$(jq -r '.status' <<< "$INNER_JSON")
+              EXTRACTED_BODY=$(jq -r '.body' <<< "$INNER_JSON")
+
+              # Remove nested JSON/code fences if body starts with ```json
+              if [[ "$EXTRACTED_BODY" =~ ^\`\`\`json ]]; then
+                  EXTRACTED_BODY=$(echo "$EXTRACTED_BODY" | sed -E '1d;$d') # remove first/last lines
+                  EXTRACTED_BODY=$(echo "$EXTRACTED_BODY" | jq -r '.body // .')
+              fi
           else
-            # Fallback if no valid JSON found
-            DETECTED_STATUS="PASSED"
-            EXTRACTED_BODY="$RAW"
+              DETECTED_STATUS="PASSED"
+              EXTRACTED_BODY="$RAW"
           fi
 
-          # --- 2. Prepend status line for PR comment
+          # --- Prepend status for PR comment
           EXTRACTED_BODY="Status: $DETECTED_STATUS\n\n$EXTRACTED_BODY"
 
-          # --- 3. Escape safely for JSON output
+          # --- Escape safely for JSON output
           SAFE_BODY=$(printf "%s" "$EXTRACTED_BODY" | jq -Rs '.')
 
-          # --- 4. Write cleaned JSON back to review file
+          # --- Write clean JSON back
           printf '{"status":"%s","body":%s}\n' "$DETECTED_STATUS" "$SAFE_BODY" > "$REVIEW_FILE"
 
-          # --- 5. Normalize status for workflow usage
+          # --- Normalize status for workflow
           NORMALIZED="$DETECTED_STATUS"
           case "$DETECTED_STATUS" in
             CRITICAL* ) NORMALIZED="CRITICAL" ;;
@@ -131,10 +133,9 @@ jobs:
             * ) NORMALIZED="IMPROVEMENTS" ;;
           esac
 
-          # --- 6. Write PR comment output
+          # --- Write PR comment
           echo -e "$EXTRACTED_BODY" > ai_review_status.txt
           echo "review_status=$NORMALIZED" >> $GITHUB_OUTPUT
-
 
       - name: Post AI Review as PR Comment
         env:
@@ -142,14 +143,10 @@ jobs:
         run: |
           set -euo pipefail
           COMMENT=$(<ai_review_status.txt)
-
-          # Safely wrap COMMENT in JSON preserving newlines and code blocks
           JSON_BODY=$(jq -Rs --arg text "$COMMENT" '{body: $text}')
-
           PR_NUMBER=${{ github.event.pull_request.number }}
           REPO=${{ github.repository }}
           API_URL="https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments"
-
           curl -sS -X POST \
                -H "Authorization: token $PAT_TOKEN" \
                -H "Content-Type: application/json" \

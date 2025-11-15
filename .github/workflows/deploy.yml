@@ -97,31 +97,33 @@ jobs:
           set -euo pipefail
           REVIEW_FILE="ai_review_output.txt"
 
+          # Read AI response
           RAW=$(<"$REVIEW_FILE")
 
-          # --- 1. Try to extract JSON inside AI response
+          # --- 1. Try to extract JSON object from AI response
           INNER_JSON=$(echo "$RAW" | sed -n '/{/,/}/p' | jq -c '.' 2>/dev/null || true)
 
           if [ -n "$INNER_JSON" ]; then
-            DETECTED_STATUS=$(echo "$INNER_JSON" | jq -r '.status // "PASSED"')
-            EXTRACTED_BODY=$(echo "$INNER_JSON" | jq -r '.body // ""')
+            # Extract AI-provided status and body
+            DETECTED_STATUS=$(jq -r '.status' <<< "$INNER_JSON")
+            EXTRACTED_BODY=$(jq -r '.body' <<< "$INNER_JSON")
           else
-            # fallback if no valid JSON found
+            # Fallback if no valid JSON found
             DETECTED_STATUS="PASSED"
             EXTRACTED_BODY="$RAW"
           fi
 
-          # --- 2. Prepend status line
+          # --- 2. Prepend status line for PR comment
           EXTRACTED_BODY="Status: $DETECTED_STATUS\n\n$EXTRACTED_BODY"
 
-          # --- 3. Escape safely for JSON
+          # --- 3. Escape safely for JSON output
           SAFE_BODY=$(printf "%s" "$EXTRACTED_BODY" | jq -Rs '.')
 
-          # --- 4. Write clean JSON back
+          # --- 4. Write cleaned JSON back to review file
           printf '{"status":"%s","body":%s}\n' "$DETECTED_STATUS" "$SAFE_BODY" > "$REVIEW_FILE"
 
-          # --- 5. Normalize status for workflow
-          NORMALIZED="PASSED"
+          # --- 5. Normalize status for workflow usage
+          NORMALIZED="$DETECTED_STATUS"
           case "$DETECTED_STATUS" in
             CRITICAL* ) NORMALIZED="CRITICAL" ;;
             IMPROVEMENTS ) NORMALIZED="IMPROVEMENTS" ;;
@@ -129,9 +131,10 @@ jobs:
             * ) NORMALIZED="IMPROVEMENTS" ;;
           esac
 
-          # --- 6. Write PR comment
+          # --- 6. Write PR comment output
           echo -e "$EXTRACTED_BODY" > ai_review_status.txt
           echo "review_status=$NORMALIZED" >> $GITHUB_OUTPUT
+
 
       - name: Post AI Review as PR Comment
         env:

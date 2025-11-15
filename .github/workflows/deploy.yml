@@ -69,7 +69,7 @@ jobs:
             messages: [
               {
                 role: "system",
-                content: "You are a senior software engineer performing a strict code review. Return ONLY a single valid JSON object: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"content\": \"Markdown PR comment\"}. Format all code snippets with triple backticks and language hints (```html, ```js), use actual newlines, escape quotes properly, and include headings, bullet points, and preformatted code blocks. Do not return text outside JSON. Output will be Forcedly & Always return always in JSON format"
+                content: "You are a senior software engineer performing a strict code review. Return ONLY a single valid JSON object: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"content\": \"Markdown PR comment\"}. Format all code snippets with triple backticks and language hints (```html, ```js), use actual newlines, escape quotes properly, and include headings, bullet points, and preformatted code blocks. Do not return text outside JSON. Output MUST always be valid JSON."
               },
               {
                 role: "user",
@@ -85,7 +85,7 @@ jobs:
 
           REVIEW_RAW=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
 
-          # Remove nested ```json fences if present
+          # Remove any accidental ```json fences
           REVIEW_RAW=$(printf "%s" "$REVIEW_RAW" | sed -E 's/```json//g;s/```//g')
 
           if [ -z "$REVIEW_RAW" ]; then
@@ -101,21 +101,21 @@ jobs:
           REVIEW_FILE="ai_review_output.txt"
           RAW=$(<"$REVIEW_FILE")
 
-          # 1. Extract only the first valid JSON object
+          # Extract first JSON object
           INNER_JSON=$(printf "%s" "$RAW" | grep -oP '\{(?:[^{}]|(?R))*\}' | head -n 1 || true)
 
           if [ -n "$INNER_JSON" ]; then
-              DETECTED_STATUS=$(jq -r '.status // empty' <<< "$INNER_JSON")
-              EXTRACTED_BODY=$(jq -r '.content // empty' <<< "$INNER_JSON")
+              DETECTED_STATUS=$(jq -r '.status // "IMPROVEMENTS"' <<< "$INNER_JSON")
+              EXTRACTED_BODY=$(jq -r '.content // ""' <<< "$INNER_JSON")
           else
               DETECTED_STATUS="PASSED"
               EXTRACTED_BODY="$RAW"
           fi
 
-          # 2. Remove any leftover nested JSON inside the content
-          EXTRACTED_BODY=$(echo "$EXTRACTED_BODY" | sed -E 's/\{.*\}//g')
+          # Remove any nested JSON inside the content
+          EXTRACTED_BODY=$(echo "$EXTRACTED_BODY" | grep -v '^\s*[{}]\s*$')
 
-          # 3. Normalize status
+          # Normalize status
           case "$DETECTED_STATUS" in
             CRITICAL* ) NORMALIZED="CRITICAL_ISSUE" ;;
             IMPROVEMENTS ) NORMALIZED="IMPROVEMENTS" ;;
@@ -123,11 +123,11 @@ jobs:
             * ) NORMALIZED="IMPROVEMENTS" ;;
           esac
 
-          # 4. Save cleaned JSON back to file
+          # Save cleaned JSON
           SAFE_BODY=$(printf "%s" "$EXTRACTED_BODY" | jq -Rs '.')
           printf '{"status":"%s","content":%s}\n' "$NORMALIZED" "$SAFE_BODY" > "$REVIEW_FILE"
 
-          # 5. Write PR comment as:
+          # Write PR comment as:
           # Status: <STATUS>
           #
           # <content>
@@ -138,7 +138,6 @@ jobs:
           } > ai_review_status.txt
 
           echo "review_status=$NORMALIZED" >> $GITHUB_OUTPUT
-
 
       - name: Post AI Review as PR Comment
         env:
@@ -157,10 +156,11 @@ jobs:
                "$API_URL"
 
       - name: Fail PR if Critical
-        if: steps.set_review_status.outputs.review_status == 'CRITICAL'
+        if: steps.set_review_status.outputs.review_status == 'CRITICAL_ISSUE'
         run: |
           echo "❌ CRITICAL issues detected. Merge blocked until resolved."
           exit 1
+
 
   deploy:
     name: 🚀 Deploy to AWS

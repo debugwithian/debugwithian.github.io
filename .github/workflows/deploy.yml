@@ -97,50 +97,30 @@ jobs:
           set -euo pipefail
           REVIEW_FILE="ai_review_output.txt"
 
-          # Fallback if empty
-          if [ ! -s "$REVIEW_FILE" ]; then
-            echo '{"status":"PASSED","body":"✅ No issues detected."}' > "$REVIEW_FILE"
-          fi
-
           RAW=$(<"$REVIEW_FILE")
 
-          #
-          # --- 1. Detect status
-          #
-          DETECTED_STATUS=$(echo "$RAW" \
-            | grep -o '"status"[ ]*:[ ]*"[^"]*"' \
-            | sed 's/.*"status"[ ]*:[ ]*"\([^"]*\)".*/\1/' || true)
-          [ -z "$DETECTED_STATUS" ] && DETECTED_STATUS="PASSED"
+          # --- 1. Try to extract JSON inside AI response
+          INNER_JSON=$(echo "$RAW" | sed -n '/{/,/}/p' | jq -c '.' 2>/dev/null || true)
 
-          #
-          # --- 2. Extract body
-          #
-          EXTRACTED_BODY=$(echo "$RAW" | jq -r '.body' 2>/dev/null || echo "")
-          if [ -z "$EXTRACTED_BODY" ] || [ "$EXTRACTED_BODY" = "null" ]; then
+          if [ -n "$INNER_JSON" ]; then
+            DETECTED_STATUS=$(echo "$INNER_JSON" | jq -r '.status // "PASSED"')
+            EXTRACTED_BODY=$(echo "$INNER_JSON" | jq -r '.body // ""')
+          else
+            # fallback if no valid JSON found
+            DETECTED_STATUS="PASSED"
             EXTRACTED_BODY="$RAW"
-            EXTRACTED_BODY=$(echo "$EXTRACTED_BODY" | sed '/^{[ ]*"status"*/,/^}/d')
-            EXTRACTED_BODY=$(echo "$EXTRACTED_BODY" | sed '/^```.*$/d;/^json$/d;/^html$/d')
-            EXTRACTED_BODY=$(echo "$EXTRACTED_BODY" | sed '/^[[:space:]]*$/d')
           fi
 
-          #
-          # --- 3. Prepend status
-          #
+          # --- 2. Prepend status line
           EXTRACTED_BODY="Status: $DETECTED_STATUS\n\n$EXTRACTED_BODY"
 
-          #
-          # --- 4. Escape for JSON
-          #
+          # --- 3. Escape safely for JSON
           SAFE_BODY=$(printf "%s" "$EXTRACTED_BODY" | jq -Rs '.')
 
-          #
-          # --- 5. Write JSON without EOF
-          #
+          # --- 4. Write clean JSON back
           printf '{"status":"%s","body":%s}\n' "$DETECTED_STATUS" "$SAFE_BODY" > "$REVIEW_FILE"
 
-          #
-          # --- 6. Normalize status for workflow
-          #
+          # --- 5. Normalize status for workflow
           NORMALIZED="PASSED"
           case "$DETECTED_STATUS" in
             CRITICAL* ) NORMALIZED="CRITICAL" ;;
@@ -149,12 +129,9 @@ jobs:
             * ) NORMALIZED="IMPROVEMENTS" ;;
           esac
 
-          #
-          # --- 7. Save PR comment
-          #
+          # --- 6. Write PR comment
           echo -e "$EXTRACTED_BODY" > ai_review_status.txt
           echo "review_status=$NORMALIZED" >> $GITHUB_OUTPUT
-
 
       - name: Post AI Review as PR Comment
         env:

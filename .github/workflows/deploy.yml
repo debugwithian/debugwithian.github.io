@@ -54,6 +54,7 @@ jobs:
           else
             echo '{"status":"PASSED","body":"✅ No issues detected."}' > ai_review_output.txt
             echo "diff_exists=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Run AI Code Review (Groq)
         if: steps.generate_diff.outputs.diff_exists == 'true'

@@ -106,69 +106,64 @@ jobs:
           echo "----------------------------------------"
 
           ###########################################################################
-          # 1. Extract valid JSON object safely
+          # 1. Safely parse JSON
           ###########################################################################
-          if jq -e . >/dev/null 2>&1 <<<"$RAW"; then
-              DETECTED_STATUS=$(jq -r '.status // "IMPROVEMENTS"' <<<"$RAW")
-              EXTRACTED_BODY=$(jq -r '.content // ""' <<<"$RAW")
-              echo "✅ Parsed valid JSON from AI output."
-          else
-              echo "⚠️ AI output is not valid JSON. Attempting to extract first JSON object..."
-              INNER_JSON=$(echo "$RAW" | grep -oP '\{(?:[^{}]|(?R))*\}' | head -n1 || true)
-              if [ -n "$INNER_JSON" ]; then
-                  DETECTED_STATUS=$(jq -r '.status // "IMPROVEMENTS"' <<<"$INNER_JSON")
-                  EXTRACTED_BODY=$(jq -r '.content // ""' <<<"$INNER_JSON")
-                  echo "✅ Extracted JSON object from raw AI output."
-              else
-                  DETECTED_STATUS="PASSED"
-                  EXTRACTED_BODY="$RAW"
-                  echo "⚠️ No JSON found, defaulting to PASSED."
-              fi
-          fi
+          # Wrap in jq -Rs to preserve all line breaks, quotes, and Markdown
+          SAFE_JSON=$(jq -Rs <<<"$RAW")
+
+          DETECTED_STATUS=$(echo "$SAFE_JSON" | jq -r '
+            if . | fromjson? then (. | fromjson | .status // "IMPROVEMENTS")
+            else "IMPROVEMENTS" end
+          ')
+          EXTRACTED_BODY=$(echo "$SAFE_JSON" | jq -r '
+            if . | fromjson? then (. | fromjson | .content // "")
+            else . end
+          ')
 
           echo "🔹 Detected Status: $DETECTED_STATUS"
           echo "🔹 Extracted Content Preview:"
-          echo "$EXTRACTED_BODY" | head -n 10
+          echo "$EXTRACTED_BODY" | head -n 15
           echo "----------------------------------------"
 
           ###########################################################################
-          # 2. Normalize status
+          # 2. Normalize status (case-insensitive, space-insensitive)
           ###########################################################################
-          case "$DETECTED_STATUS" in
-            CRITICAL* ) NORMALIZED="CRITICAL_ISSUE" ;;
+          STATUS_UPPER=$(echo "$DETECTED_STATUS" | tr '[:lower:]' '[:upper:]' | tr -d ' ')
+          case "$STATUS_UPPER" in
+            CRITICALISSUE ) NORMALIZED="CRITICAL_ISSUE" ;;
             IMPROVEMENTS ) NORMALIZED="IMPROVEMENTS" ;;
             PASSED ) NORMALIZED="PASSED" ;;
             * ) NORMALIZED="IMPROVEMENTS" ;;
           esac
+
           echo "🔹 Normalized Status: $NORMALIZED"
           echo "----------------------------------------"
 
           ###########################################################################
-          # 3. Save JSON for internal workflow usage
+          # 3. Save cleaned JSON back (for internal use)
           ###########################################################################
           printf '{"status":"%s","content":%s}\n' "$NORMALIZED" "$(jq -Rs <<<"$EXTRACTED_BODY")" > "$REVIEW_FILE"
-          echo "✅ Internal JSON saved to $REVIEW_FILE"
+          echo "✅ Cleaned JSON saved to $REVIEW_FILE"
 
           ###########################################################################
-          # 4. Write human-readable PR comment (preserve full Markdown)
+          # 4. Write human-readable PR comment
           ###########################################################################
           {
-            echo "## Code Review Result"
-            echo
-            echo "**Status:** $NORMALIZED"
+            echo "Status: $NORMALIZED"
             echo
             printf "%s\n" "$EXTRACTED_BODY"
           } > ai_review_status.txt
           echo "✅ PR comment written to ai_review_status.txt"
           echo "Preview:"
-          head -n 20 ai_review_status.txt
+          head -n 15 ai_review_status.txt
           echo "----------------------------------------"
 
           ###########################################################################
-          # 5. Set output for subsequent workflow steps
+          # 5. Set output for next workflow steps
           ###########################################################################
           echo "review_status=$NORMALIZED" >> $GITHUB_OUTPUT
           echo "✅ review_status output set for workflow steps"
+
 
       - name: Post AI Review as PR Comment
         env:

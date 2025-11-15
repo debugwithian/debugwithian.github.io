@@ -94,67 +94,93 @@ jobs:
 
           echo "$REVIEW_RAW" | tee ai_review_output.txt
 
-      - name: Analyze AI Review
-        id: set_review_status
-        run: |
-          set -euo pipefail
-          REVIEW_FILE="ai_review_output.txt"
-          RAW=$(<"$REVIEW_FILE")
+        - name: Analyze AI Review
+          id: set_review_status
+          run: |
+            set -euo pipefail
+            REVIEW_FILE="ai_review_output.txt"
+            RAW=$(<"$REVIEW_FILE")
 
-          ###########################################################################
-          # 1. Extract only the first valid JSON object from AI response
-          ###########################################################################
-          INNER_JSON=$(printf "%s" "$RAW" | grep -oP '\{(?:[^{}]|(?R))*\}' | head -n 1 || true)
+            echo "🔹 Raw AI output:"
+            echo "$RAW"
+            echo "----------------------------------------"
 
-          if [ -n "$INNER_JSON" ]; then
-              # Extract status and content separately
-              DETECTED_STATUS=$(jq -r '.status // "IMPROVEMENTS"' <<< "$INNER_JSON")
-              EXTRACTED_BODY=$(jq -r '.content // ""' <<< "$INNER_JSON")
-          else
-              DETECTED_STATUS="PASSED"
-              EXTRACTED_BODY="$RAW"
-          fi
+            ###########################################################################
+            # 1. Parse JSON safely
+            ###########################################################################
+            if jq -e . >/dev/null 2>&1 <<<"$RAW"; then
+                DETECTED_STATUS=$(jq -r '.status // "IMPROVEMENTS"' <<<"$RAW")
+                EXTRACTED_BODY=$(jq -r '.content // ""' <<<"$RAW")
+                echo "✅ Parsed valid JSON from AI output."
+            else
+                echo "⚠️ AI output is not valid JSON. Attempting to extract first JSON object..."
+                INNER_JSON=$(echo "$RAW" | tr -d '\r\n' | grep -o '{[^}]*}' | head -n1 || true)
+                if [ -n "$INNER_JSON" ]; then
+                    DETECTED_STATUS=$(jq -r '.status // "IMPROVEMENTS"' <<<"$INNER_JSON")
+                    EXTRACTED_BODY=$(jq -r '.content // ""' <<<"$INNER_JSON")
+                    echo "✅ Extracted JSON object from raw AI output."
+                else
+                    DETECTED_STATUS="PASSED"
+                    EXTRACTED_BODY="$RAW"
+                    echo "⚠️ No JSON found, defaulting to PASSED."
+                fi
+            fi
 
-          ###########################################################################
-          # 2. Remove any leftover nested JSON objects (line-by-line)
-          ###########################################################################
-          EXTRACTED_BODY=$(echo "$EXTRACTED_BODY" | awk '
-            BEGIN { in_json=0 }
-            /^\s*\{/ { in_json=1; next }
-            /^\s*\}/ { in_json=0; next }
-            in_json==0 { print }
-          ')
+            echo "🔹 Detected Status: $DETECTED_STATUS"
+            echo "🔹 Extracted Content Preview:"
+            echo "$EXTRACTED_BODY" | head -n 10
+            echo "----------------------------------------"
 
-          ###########################################################################
-          # 3. Normalize status
-          ###########################################################################
-          case "$DETECTED_STATUS" in
-            CRITICAL* ) NORMALIZED="CRITICAL_ISSUE" ;;
-            IMPROVEMENTS ) NORMALIZED="IMPROVEMENTS" ;;
-            PASSED ) NORMALIZED="PASSED" ;;
-            * ) NORMALIZED="IMPROVEMENTS" ;;
-          esac
+            ###########################################################################
+            # 2. Remove any leftover nested JSON objects (line-by-line)
+            ###########################################################################
+            EXTRACTED_BODY=$(echo "$EXTRACTED_BODY" | awk '
+              BEGIN { in_json=0 }
+              /^\s*\{/ { in_json=1; next }
+              /^\s*\}/ { in_json=0; next }
+              in_json==0 { print }
+            ')
+            echo "🔹 Content after removing nested JSON:"
+            echo "$EXTRACTED_BODY" | head -n 10
+            echo "----------------------------------------"
 
-          ###########################################################################
-          # 4. Save cleaned JSON back to file (for internal reference)
-          ###########################################################################
-          SAFE_BODY=$(printf "%s" "$EXTRACTED_BODY" | jq -Rs '.')
-          printf '{"status":"%s","content":%s}\n' "$NORMALIZED" "$SAFE_BODY" > "$REVIEW_FILE"
+            ###########################################################################
+            # 3. Normalize status
+            ###########################################################################
+            case "$DETECTED_STATUS" in
+              CRITICAL* ) NORMALIZED="CRITICAL_ISSUE" ;;
+              IMPROVEMENTS ) NORMALIZED="IMPROVEMENTS" ;;
+              PASSED ) NORMALIZED="PASSED" ;;
+              * ) NORMALIZED="IMPROVEMENTS" ;;
+            esac
+            echo "🔹 Normalized Status: $NORMALIZED"
+            echo "----------------------------------------"
 
-          ###########################################################################
-          # 5. Write human-readable PR comment (ai_review_status.txt)
-          ###########################################################################
-          {
-            echo "Status: $NORMALIZED"
-            echo
-            printf "%s\n" "$EXTRACTED_BODY"
-          } > ai_review_status.txt
+            ###########################################################################
+            # 4. Save cleaned JSON back to file (for internal reference)
+            ###########################################################################
+            SAFE_BODY=$(printf "%s" "$EXTRACTED_BODY" | jq -Rs '.')
+            printf '{"status":"%s","content":%s}\n' "$NORMALIZED" "$SAFE_BODY" > "$REVIEW_FILE"
+            echo "✅ Cleaned JSON saved to $REVIEW_FILE"
 
-          ###########################################################################
-          # 6. Set output for later steps
-          ###########################################################################
-          echo "review_status=$NORMALIZED" >> $GITHUB_OUTPUT
+            ###########################################################################
+            # 5. Write human-readable PR comment (ai_review_status.txt)
+            ###########################################################################
+            {
+              echo "Status: $NORMALIZED"
+              echo
+              printf "%s\n" "$EXTRACTED_BODY"
+            } > ai_review_status.txt
+            echo "✅ PR comment written to ai_review_status.txt"
+            echo "Preview:"
+            head -n 15 ai_review_status.txt
+            echo "----------------------------------------"
 
+            ###########################################################################
+            # 6. Set output for later steps
+            ###########################################################################
+            echo "review_status=$NORMALIZED" >> $GITHUB_OUTPUT
+            echo "✅ review_status output set for workflow steps"
 
       - name: Post AI Review as PR Comment
         env:

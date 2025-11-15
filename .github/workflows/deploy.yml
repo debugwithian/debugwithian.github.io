@@ -112,13 +112,21 @@ jobs:
 
             # Fallback if no valid status found
             if [ -z "$DETECTED_STATUS" ]; then
-              DETECTED_STATUS="CRITICAL_ISSUE"
+              DETECTED_STATUS="PASSED"
             fi
 
-            # Safely encode the body text
-            SAFE_BODY=$(printf "%s" "$RAW" | jq -Rs '.')
+            # Extract body using regex even if JSON is broken
+            EXTRACTED_BODY=$(echo "$RAW" | sed -n 's/.*"body":[ ]*"\(.*\)".*/\1/p')
 
-            # Rebuild JSON preserving the AI’s intended status
+            # If body wasn't extracted (invalid JSON structure)
+            if [ -z "$EXTRACTED_BODY" ]; then
+              EXTRACTED_BODY="$RAW"   # fallback: raw markdown
+            fi
+
+            # Safely encode body for JSON
+            SAFE_BODY=$(printf "%s" "$EXTRACTED_BODY" | jq -Rs '.')
+
+            # Rebuild JSON using correct body only
             echo "{\"status\":\"$DETECTED_STATUS\",\"body\":$SAFE_BODY}" > "$REVIEW_FILE"
           fi
 

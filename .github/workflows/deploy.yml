@@ -54,7 +54,6 @@ jobs:
           else
             echo '{"status":"PASSED","body":"✅ No issues detected."}' > ai_review_output.txt
             echo "diff_exists=false" >> $GITHUB_OUTPUT
-          fi
 
       - name: Run AI Code Review (Groq)
         if: steps.generate_diff.outputs.diff_exists == 'true'
@@ -73,7 +72,7 @@ jobs:
               },
               {
                 role: "user",
-                content: ("Review the following git diff for potential problems (logic, syntax, style, performance, security). Return only one of: CRITICAL if critical issues exist, IMPROVEMENTS if suggestions, or PASSED if no issues. Format your response in GitHub Markdown with headings, bullets, and preformatted code blocks.\n\n" + $diff)
+                content: ("Review the following git diff for potential problems (logic, syntax, style, performance, security). Return only one of: CRITICAL_ISSUE if critical issues exist, IMPROVEMENTS if suggestions, or PASSED if no issues. Format your response in GitHub Markdown with headings, bullets, and preformatted code blocks.\n\n" + $diff)
               }
             ]
           }')
@@ -98,34 +97,24 @@ jobs:
           REVIEW_FILE="ai_review_output.txt"
           RAW=$(<"$REVIEW_FILE")
 
-          # --- Extract JSON object from AI response
-          INNER_JSON=$(echo "$RAW" | sed -n '/{/,/}/p' | jq -c '.' 2>/dev/null || true)
+          # Extract JSON object from AI response
+          INNER_JSON=$(echo "$RAW" | grep -oP '\{.*\}' | jq -c '.' 2>/dev/null || true)
 
           if [ -n "$INNER_JSON" ]; then
               DETECTED_STATUS=$(jq -r '.status' <<< "$INNER_JSON")
               EXTRACTED_BODY=$(jq -r '.body' <<< "$INNER_JSON")
 
-              # Remove nested JSON/code fences if body starts with ```json
-              if [[ "$EXTRACTED_BODY" =~ ^\`\`\`json ]]; then
-                  EXTRACTED_BODY=$(echo "$EXTRACTED_BODY" | sed -E '1d;$d') # remove first/last lines
-                  EXTRACTED_BODY=$(echo "$EXTRACTED_BODY" | jq -r '.body // .')
+              # Remove nested JSON/code fences if present
+              if [[ "$EXTRACTED_BODY" =~ ^\`\`\` ]]; then
+                  EXTRACTED_BODY=$(echo "$EXTRACTED_BODY" | sed -E '1d;$d')
+                  EXTRACTED_BODY=$(echo "$EXTRACTED_BODY" | jq -r '.body // .' 2>/dev/null || echo "$EXTRACTED_BODY")
               fi
           else
               DETECTED_STATUS="PASSED"
               EXTRACTED_BODY="$RAW"
           fi
 
-          # --- Prepend status for PR comment
-          EXTRACTED_BODY="Status: $DETECTED_STATUS\n\n$EXTRACTED_BODY"
-
-          # --- Escape safely for JSON output
-          SAFE_BODY=$(printf "%s" "$EXTRACTED_BODY" | jq -Rs '.')
-
-          # --- Write clean JSON back
-          printf '{"status":"%s","body":%s}\n' "$DETECTED_STATUS" "$SAFE_BODY" > "$REVIEW_FILE"
-
-          # --- Normalize status for workflow
-          NORMALIZED="$DETECTED_STATUS"
+          # Normalize status to a single one
           case "$DETECTED_STATUS" in
             CRITICAL* ) NORMALIZED="CRITICAL" ;;
             IMPROVEMENTS ) NORMALIZED="IMPROVEMENTS" ;;
@@ -133,7 +122,16 @@ jobs:
             * ) NORMALIZED="IMPROVEMENTS" ;;
           esac
 
-          # --- Write PR comment
+          # Prepend status for PR comment
+          EXTRACTED_BODY="Status: $NORMALIZED\n\n$EXTRACTED_BODY"
+
+          # Escape safely for JSON
+          SAFE_BODY=$(printf "%s" "$EXTRACTED_BODY" | jq -Rs '.')
+
+          # Write cleaned JSON back
+          printf '{"status":"%s","body":%s}\n' "$NORMALIZED" "$SAFE_BODY" > "$REVIEW_FILE"
+
+          # Write PR comment
           echo -e "$EXTRACTED_BODY" > ai_review_status.txt
           echo "review_status=$NORMALIZED" >> $GITHUB_OUTPUT
 

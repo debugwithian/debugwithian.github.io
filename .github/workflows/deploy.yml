@@ -85,6 +85,9 @@ jobs:
 
           REVIEW_RAW=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
 
+          # Force remove fenced code blocks like ```json ... ```
+          REVIEW_RAW=$(printf "%s" "$REVIEW_RAW" | sed -E 's/```json//g;s/```//g')
+
           if [ -z "$REVIEW_RAW" ]; then
             REVIEW_RAW='{"status":"PASSED","body":"✅ No issues detected."}'
           fi

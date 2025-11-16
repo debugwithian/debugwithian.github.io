@@ -103,14 +103,14 @@ jobs:
           REVIEW_FILE="ai_review_output.txt"
           CLEAN_FILE="ai_review_output_clean.json"
 
-          # Read AI JSON output from file
+          # --- Read AI JSON safely ---
           RAW=$(<"$REVIEW_FILE")
 
           echo "🔹 Raw AI output:"
           echo "$RAW"
           echo "----------------------------------------"
 
-          # Remove accidental code fences (```json / ```)
+          # Strip accidental code fences ```json / ```
           RAW=$(printf "%s" "$RAW" | sed -E 's/```json//g;s/```//g')
 
           # Validate JSON
@@ -135,7 +135,7 @@ jobs:
           echo "🔹 Normalized Status: $NORMALIZED"
           echo "----------------------------------------"
 
-          # Create properly escaped JSON using jq
+          # Safely rebuild JSON with proper escaping for content
           jq -n --arg status "$NORMALIZED" --arg content "$EXTRACTED_BODY" \
              '{status: $status, content: $content}' > "$CLEAN_FILE"
 

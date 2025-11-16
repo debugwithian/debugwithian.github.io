@@ -70,7 +70,7 @@ jobs:
             messages: [
               {
                 role: "system",
-                content: "You are a senior software engineer performing a strict code review. Return ONLY a single valid JSON object with keys {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"content\": \"Markdown PR comment\"}. Do NOT combine multiple statuses. Do NOT output anything outside the JSON object. Escape Markdown properly inside the content string."
+                content: "You are a senior software engineer performing a strict code review. Return ONLY a single valid JSON object with keys {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"content\": \"Markdown PR comment\"}. Escape Markdown properly inside content. Do NOT output anything outside the JSON object. Do NOT combine multiple statuses."
               },
               {
                 role: "user",
@@ -84,7 +84,7 @@ jobs:
             -H "Authorization: Bearer $GROQ_API_KEY" \
             --data-raw "$PAYLOAD")
 
-          # Extract AI JSON safely and strip code fences
+          # Extract AI JSON safely
           AI_JSON=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
           AI_JSON=$(printf "%s" "$AI_JSON" | sed -E 's/```json//g;s/```//g')
 
@@ -106,20 +106,23 @@ jobs:
           echo "$RAW"
           echo "----------------------------------------"
 
-          # Strip accidental ```json fences
+          # Remove code fences
           RAW=$(printf "%s" "$RAW" | sed -E 's/```json//g;s/```//g')
 
-          # Convert to safely escaped JSON string
+          # Safely escape for JSON parsing
           SAFE_JSON=$(jq -Rs . <<<"$RAW")
 
           # Parse JSON safely
           DETECTED_STATUS=$(echo "$SAFE_JSON" | jq -r 'fromjson? | .status // "IMPROVEMENTS"')
           EXTRACTED_BODY=$(echo "$SAFE_JSON" | jq -r 'fromjson? | .content // ""')
 
+          # If multiple statuses like "CRITICAL_ISSUE|IMPROVEMENTS", pick first
+          DETECTED_STATUS=$(echo "$DETECTED_STATUS" | cut -d'|' -f1)
+
           # Normalize status
           STATUS_UPPER=$(echo "$DETECTED_STATUS" | tr '[:lower:]' '[:upper:]' | tr -d ' ')
           case "$STATUS_UPPER" in
-              CRITICALISSUE) NORMALIZED="CRITICAL_ISSUE" ;;
+              CRITICALISSUE|CRITICAL_ISSUE) NORMALIZED="CRITICAL_ISSUE" ;;
               IMPROVEMENTS) NORMALIZED="IMPROVEMENTS" ;;
               PASSED) NORMALIZED="PASSED" ;;
               *) NORMALIZED="IMPROVEMENTS" ;;
@@ -128,11 +131,11 @@ jobs:
           echo "🔹 Normalized Status: $NORMALIZED"
           echo "----------------------------------------"
 
-          # Save cleaned JSON safely
+          # Save cleaned JSON
           jq -n --arg status "$NORMALIZED" --arg content "$EXTRACTED_BODY" \
              '{status: $status, content: $content}' > "$CLEAN_FILE"
 
-          # Write PR comment exactly as expected
+          # Write PR comment exactly as expected: Status + Body
           {
             echo "Status: $NORMALIZED"
             echo
@@ -141,7 +144,7 @@ jobs:
 
           echo "✅ PR comment written to ai_review_status.txt"
 
-          # Set output for workflow
+          # Set output
           echo "review_status=$NORMALIZED" >> "$GITHUB_OUTPUT"
 
       - name: Post AI Review as PR Comment

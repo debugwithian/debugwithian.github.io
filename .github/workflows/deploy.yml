@@ -70,7 +70,7 @@ jobs:
             messages: [
               {
                 role: "system",
-                content: "You are a senior software engineer performing a strict code review. Syntax errors & missing always produce critical error. Choose only 1 status: CRITICAL_ISSUE|IMPROVEMENTS|PASSED. You MUST return ONLY a single valid JSON object with EXACTLY two keys: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"content\": \"Markdown PR comment\"}. The entire response must be valid JSON with all necessary escaping. Do NOT output anything outside the JSON object. Do NOT include multiple JSON objects. Markdown must remain inside the string."
+                content: "You are a senior software engineer performing a strict code review. Return ONLY a single valid JSON object with two keys: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"content\": \"Markdown PR comment\"}. Do NOT output anything outside the JSON object. Markdown must remain inside the string."
               },
               {
                 role: "user",
@@ -88,40 +88,38 @@ jobs:
           AI_JSON=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
           AI_JSON=$(printf "%s" "$AI_JSON" | sed -E 's/```json//g;s/```//g')
 
+          # Fallback if empty
           if [ -z "$AI_JSON" ]; then
             AI_JSON='{"status":"PASSED","content":"No issues detected."}'
           fi
 
-          # Save AI JSON to file for next step
           printf "%s" "$AI_JSON" > ai_review_output.txt
 
       - name: Analyze AI Review
         id: set_review_status
         run: |
           set -euo pipefail
-
           REVIEW_FILE="ai_review_output.txt"
           CLEAN_FILE="ai_review_output_clean.json"
 
-          # --- Read AI JSON safely ---
+          # Read AI JSON safely
           RAW=$(<"$REVIEW_FILE")
-
           echo "🔹 Raw AI output:"
           echo "$RAW"
           echo "----------------------------------------"
 
-          # Strip accidental code fences ```json / ```
+          # Strip accidental code fences
           RAW=$(printf "%s" "$RAW" | sed -E 's/```json//g;s/```//g')
 
           # Validate JSON
-          if ! jq -e . >/dev/null 2>&1 <<<"$RAW"; then
+          if ! echo "$RAW" | jq . >/dev/null 2>&1; then
               echo "❌ AI returned invalid JSON. Merge blocked."
               exit 1
           fi
 
-          # Extract status and content
-          DETECTED_STATUS=$(jq -r '.status // "IMPROVEMENTS"' <<<"$RAW")
-          EXTRACTED_BODY=$(jq -r '.content // ""' <<<"$RAW")
+          # Extract fields safely
+          DETECTED_STATUS=$(echo "$RAW" | jq -r '.status // "IMPROVEMENTS"')
+          EXTRACTED_BODY=$(echo "$RAW" | jq -r '.content // ""')
 
           # Normalize status
           STATUS_UPPER=$(echo "$DETECTED_STATUS" | tr '[:lower:]' '[:upper:]' | tr -d ' ')
@@ -135,11 +133,9 @@ jobs:
           echo "🔹 Normalized Status: $NORMALIZED"
           echo "----------------------------------------"
 
-          # Safely rebuild JSON with proper escaping for content
+          # Save properly escaped JSON
           jq -n --arg status "$NORMALIZED" --arg content "$EXTRACTED_BODY" \
              '{status: $status, content: $content}' > "$CLEAN_FILE"
-
-          echo "✅ Cleaned JSON saved to $CLEAN_FILE"
 
           # Write human-readable PR comment
           {
@@ -149,14 +145,9 @@ jobs:
           } > ai_review_status.txt
 
           echo "✅ PR comment written to ai_review_status.txt"
-          echo "Preview:"
-          head -n 15 ai_review_status.txt
-          echo "----------------------------------------"
 
-          # Set output for next workflow steps
+          # Set output for workflow steps
           echo "review_status=$NORMALIZED" >> "$GITHUB_OUTPUT"
-          echo "✅ review_status output set for workflow steps"
-
 
       - name: Post AI Review as PR Comment
         env:

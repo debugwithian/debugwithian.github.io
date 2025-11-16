@@ -70,7 +70,7 @@ jobs:
             messages: [
               {
                 role: "system",
-                content: "You are a senior software engineer performing a strict code review. Return ONLY a single valid JSON object with keys {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"content\": \"Markdown PR comment\"} Normalize and Parse the JSON value of the content. Do NOT output anything outside the JSON object. Markdown must remain inside the string."
+                content: "You are a senior software engineer performing a strict code review. Return ONLY a single valid JSON object with keys {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"content\": \"Markdown PR comment\"}. Do NOT combine multiple statuses. Do NOT output anything outside the JSON object. Escape Markdown properly inside the content string."
               },
               {
                 role: "user",
@@ -84,7 +84,7 @@ jobs:
             -H "Authorization: Bearer $GROQ_API_KEY" \
             --data-raw "$PAYLOAD")
 
-          # Extract AI JSON safely
+          # Extract AI JSON safely and strip code fences
           AI_JSON=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
           AI_JSON=$(printf "%s" "$AI_JSON" | sed -E 's/```json//g;s/```//g')
 
@@ -101,7 +101,6 @@ jobs:
           REVIEW_FILE="ai_review_output.txt"
           CLEAN_FILE="ai_review_output_clean.json"
 
-          # Read AI output
           RAW=$(<"$REVIEW_FILE")
           echo "🔹 Raw AI output:"
           echo "$RAW"
@@ -110,10 +109,10 @@ jobs:
           # Strip accidental ```json fences
           RAW=$(printf "%s" "$RAW" | sed -E 's/```json//g;s/```//g')
 
-          # Convert safely to JSON string (escapes newlines, quotes)
+          # Convert to safely escaped JSON string
           SAFE_JSON=$(jq -Rs . <<<"$RAW")
 
-          # Extract status and content safely using fromjson
+          # Parse JSON safely
           DETECTED_STATUS=$(echo "$SAFE_JSON" | jq -r 'fromjson? | .status // "IMPROVEMENTS"')
           EXTRACTED_BODY=$(echo "$SAFE_JSON" | jq -r 'fromjson? | .content // ""')
 
@@ -133,7 +132,7 @@ jobs:
           jq -n --arg status "$NORMALIZED" --arg content "$EXTRACTED_BODY" \
              '{status: $status, content: $content}' > "$CLEAN_FILE"
 
-          # Save human-readable PR comment
+          # Write PR comment exactly as expected
           {
             echo "Status: $NORMALIZED"
             echo
@@ -142,7 +141,7 @@ jobs:
 
           echo "✅ PR comment written to ai_review_status.txt"
 
-          # Output for next workflow steps
+          # Set output for workflow
           echo "review_status=$NORMALIZED" >> "$GITHUB_OUTPUT"
 
       - name: Post AI Review as PR Comment

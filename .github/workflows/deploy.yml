@@ -57,6 +57,7 @@ jobs:
           fi
 
       - name: Run AI Code Review (Groq)
+        id: run_ai
         if: steps.generate_diff.outputs.diff_exists == 'true'
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
@@ -69,15 +70,14 @@ jobs:
             messages: [
               {
                 role: "system",
-                content: "You are a senior software engineer performing a strict code review. You MUST return ONLY a single valid JSON object with EXACTLY two keys: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"content\": \"Markdown PR comment\"}. The entire response must be valid JSON with all necessary escaping. Do NOT output anything outside the JSON object. Do NOT include multiple JSON objects. Do NOT include commentary, explanation, or extra text before or after the JSON. Markdown formatting must be inside the JSON string and must be escaped as required to produce valid JSON."
+                content: "You are a senior software engineer performing a strict code review. You MUST return ONLY a single valid JSON object with EXACTLY two keys: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"content\": \"Markdown PR comment\"}. The entire response must be valid JSON with all necessary escaping. Do NOT output anything outside the JSON object. Do NOT include multiple JSON objects. Do NOT include commentary, explanation, or extra text before or after the JSON. Markdown must be inside the JSON string."
               },
               {
                 role: "user",
-                content: ("Review the following git diff for logic, syntax, style, performance, and security issues. Return:\n- CRITICAL_ISSUE → if any breaking, fatal, or blocking issues exist\n- IMPROVEMENTS → if only non-critical improvements exist\n- PASSED → if no issues exist\n\nReturn only valid JSON.\n\nDiff:\n\n" + $diff)
+                content: ("Review the following git diff for logic, syntax, style, performance, and security issues. Return:\n- CRITICAL_ISSUE → critical/breaking issues\n- IMPROVEMENTS → non-critical improvements\n- PASSED → no issues\n\nReturn only valid JSON.\n\nDiff:\n\n" + $diff)
               }
             ]
           }')
-
 
           RAW_RESPONSE=$(curl -sS --fail https://api.groq.com/openai/v1/chat/completions \
             -H "Content-Type: application/json" \
@@ -85,14 +85,18 @@ jobs:
             --data-raw "$PAYLOAD") || exit 1
 
           REVIEW_RAW=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
-          # Remove accidental ```json fences
           REVIEW_RAW=$(printf "%s" "$REVIEW_RAW" | sed -E 's/```json//g;s/```//g')
 
           if [ -z "$REVIEW_RAW" ]; then
-            REVIEW_RAW='{"status":"PASSED","content":"✅ No issues detected."}'
+            REVIEW_RAW='{"status":"PASSED","content":"No issues detected."}'
           fi
 
-          echo "$REVIEW_RAW" | tee ai_review_output.txt
+          echo "$REVIEW_RAW" > ai_review_output.txt
+
+          # Export AI output for next step
+          echo "raw_response<<EOF" >> $GITHUB_OUTPUT
+          echo "$REVIEW_RAW" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Analyze AI Review
         id: set_review_status
@@ -100,33 +104,24 @@ jobs:
           set -euo pipefail
           REVIEW_FILE="ai_review_output.txt"
 
-          # Assign RAW from CURL result
-          RAW="$RAW_RESPONSE"
+          RAW="${{ steps.run_ai.outputs.raw_response }}"
 
           # Strip accidental code fences
           RAW=$(printf "%s" "$RAW" | sed -E 's/```json//g;s/```//g')
-
-          # Escape safely for JSON storage
           SAFE_CONTENT=$(jq -Rs <<<"$RAW")
 
           echo "🔹 Raw AI output:"
           echo "$RAW"
           echo "----------------------------------------"
 
-          # Validate JSON
           if jq -e . >/dev/null 2>&1 <<<"$RAW"; then
               DETECTED_STATUS=$(jq -r '.status // "IMPROVEMENTS"' <<<"$RAW")
               EXTRACTED_BODY=$(jq -r '.content // ""' <<<"$RAW")
-              echo "✅ Parsed valid JSON from AI output."
+              echo "✅ JSON parsed successfully."
           else
-              echo "❌ AI output is invalid JSON. Merge blocked."
+              echo "❌ Invalid JSON from AI. Merge blocked."
               exit 1
           fi
-
-          echo "🔹 Detected Status: $DETECTED_STATUS"
-          echo "🔹 Extracted Content Preview:"
-          echo "$EXTRACTED_BODY" | head -n 15
-          echo "----------------------------------------"
 
           STATUS_UPPER=$(echo "$DETECTED_STATUS" | tr '[:lower:]' '[:upper:]' | tr -d ' ')
           case "$STATUS_UPPER" in
@@ -136,12 +131,7 @@ jobs:
             *) NORMALIZED="IMPROVEMENTS" ;;
           esac
 
-          echo "🔹 Normalized Status: $NORMALIZED"
-          echo "----------------------------------------"
-
-          # Save validated JSON
           printf '{"status":"%s","content":%s}\n' "$NORMALIZED" "$SAFE_CONTENT" > "$REVIEW_FILE"
-          echo "✅ Cleaned JSON saved to $REVIEW_FILE"
 
           {
             echo "Status: $NORMALIZED"
@@ -149,20 +139,12 @@ jobs:
             printf "%s\n" "$EXTRACTED_BODY"
           } > ai_review_status.txt
 
-          echo "✅ PR comment written to ai_review_status.txt"
-          echo "Preview:"
-          head -n 15 ai_review_status.txt
-          echo "----------------------------------------"
-
           echo "review_status=$NORMALIZED" >> $GITHUB_OUTPUT
-          echo "✅ review_status output set for workflow steps"
-
 
       - name: Post AI Review as PR Comment
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          set -euo pipefail
           COMMENT=$(<ai_review_status.txt)
           JSON_BODY=$(jq -Rs --arg text "$COMMENT" '{body: $text}')
           PR_NUMBER=${{ github.event.pull_request.number }}
@@ -177,7 +159,7 @@ jobs:
       - name: Fail PR if Critical
         if: steps.set_review_status.outputs.review_status == 'CRITICAL_ISSUE'
         run: |
-          echo "❌ CRITICAL issues detected. Merge blocked until resolved."
+          echo "❌ CRITICAL issues detected. Merge blocked."
           exit 1
 
   deploy:

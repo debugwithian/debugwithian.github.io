@@ -70,7 +70,7 @@ jobs:
             messages: [
               {
                 role: "system",
-                content: "You are a senior software engineer performing a strict code review. Return ONLY a single valid JSON object with keys {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"content\": \"Markdown PR comment\"}. Do NOT output anything outside the JSON object. Markdown must remain inside the string."
+                content: "You are a senior software engineer performing a strict code review. Return ONLY a single valid JSON object with keys {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"content\": \"Markdown PR comment\"} Normalize and Parse the JSON value of the content. Do NOT output anything outside the JSON object. Markdown must remain inside the string."
               },
               {
                 role: "user",

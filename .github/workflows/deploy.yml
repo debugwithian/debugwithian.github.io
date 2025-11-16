@@ -52,9 +52,8 @@ jobs:
             git diff $BASE HEAD > diff.txt
             echo "diff_exists=true" >> "$GITHUB_OUTPUT"
           else
-            echo '{"status":"PASSED","content":"✅ No issues detected."}' > ai_review_output.txt
+            echo "No issues detected." > ai_review_output.txt
             echo "diff_exists=false" >> "$GITHUB_OUTPUT"
-          fi
 
       - name: Run AI Code Review (Groq)
         id: run_ai
@@ -65,87 +64,48 @@ jobs:
           set -euo pipefail
           DIFF=$(<diff.txt)
 
-          PAYLOAD=$(jq -n --arg diff "$DIFF" '{
-            model: "llama-3.1-8b-instant",
-            messages: [
-              {
-                role: "system",
-                content: "You are a senior software engineer performing a strict code review. Return ONLY a single valid JSON object with keys {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"content\": \"Markdown PR comment\"}. Escape Markdown properly inside content. Do NOT output anything outside the JSON object. Do NOT combine multiple statuses."
-              },
-              {
-                role: "user",
-                content: ("Review the following git diff for logic, syntax, style, performance, and security issues. Return only valid JSON.\n\nDiff:\n\n" + $diff)
-              }
-            ]
-          }')
+          # Plain text prompt, no JSON
+          PROMPT="You are a senior software engineer performing a strict code review. Include Status if it is Passed, Needs Improvement, or Critical. Review the following git diff for logic, syntax, style, performance, and security issues. Return your review as Markdown.\n\nDiff:\n$DIFF"
 
-          RAW_RESPONSE=$(curl -sS --fail https://api.groq.com/openai/v1/chat/completions \
+          # Call AI API
+          AI_COMMENT=$(curl -sS --fail https://api.groq.com/openai/v1/chat/completions \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $GROQ_API_KEY" \
-            --data-raw "$PAYLOAD")
+            -d "$(jq -n --arg prompt "$PROMPT" '{model: "llama-3.1-8b-instant", messages: [{role: "user", content: $prompt}]}')" \
+            | jq -r '.choices[0].message.content // "No issues detected."')
 
-          # Extract AI JSON safely
-          AI_JSON=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
-          AI_JSON=$(printf "%s" "$AI_JSON" | sed -E 's/```json//g;s/```//g')
-
-          if [ -z "$AI_JSON" ]; then
-            AI_JSON='{"status":"PASSED","content":"No issues detected."}'
-          fi
-
-          printf "%s" "$AI_JSON" > ai_review_output.txt
+          printf "%s" "$AI_COMMENT" > ai_review_output.txt
 
       - name: Analyze AI Review
         id: set_review_status
         run: |
           set -euo pipefail
           REVIEW_FILE="ai_review_output.txt"
-          CLEAN_FILE="ai_review_output_clean.json"
 
-          RAW=$(<"$REVIEW_FILE")
-          echo "🔹 Raw AI output:"
-          echo "$RAW"
-          echo "----------------------------------------"
+          # Read AI comment
+          AI_COMMENT=$(<"$REVIEW_FILE")
 
-          # Remove code fences
-          RAW=$(printf "%s" "$RAW" | sed -E 's/```json//g;s/```//g')
+          # Determine status
+          STATUS="IMPROVEMENTS"  # default fallback
+          if echo "$AI_COMMENT" | grep -iq "critical"; then
+            if echo "$AI_COMMENT" | grep -iqE "no critical|not critical"; then
+              STATUS="IMPROVEMENTS"
+            else
+              STATUS="CRITICAL_ISSUE"
+            fi
+          elif echo "$AI_COMMENT" | grep -iq "no issues"; then
+            STATUS="PASSED"
+          fi
 
-          # Safely escape for JSON parsing
-          SAFE_JSON=$(jq -Rs . <<<"$RAW")
-
-          # Parse JSON safely
-          DETECTED_STATUS=$(echo "$SAFE_JSON" | jq -r 'fromjson? | .status // "IMPROVEMENTS"')
-          EXTRACTED_BODY=$(echo "$SAFE_JSON" | jq -r 'fromjson? | .content // ""')
-
-          # If multiple statuses like "CRITICAL_ISSUE|IMPROVEMENTS", pick first
-          DETECTED_STATUS=$(echo "$DETECTED_STATUS" | cut -d'|' -f1)
-
-          # Normalize status
-          STATUS_UPPER=$(echo "$DETECTED_STATUS" | tr '[:lower:]' '[:upper:]' | tr -d ' ')
-          case "$STATUS_UPPER" in
-              CRITICALISSUE|CRITICAL_ISSUE) NORMALIZED="CRITICAL_ISSUE" ;;
-              IMPROVEMENTS) NORMALIZED="IMPROVEMENTS" ;;
-              PASSED) NORMALIZED="PASSED" ;;
-              *) NORMALIZED="IMPROVEMENTS" ;;
-          esac
-
-          echo "🔹 Normalized Status: $NORMALIZED"
-          echo "----------------------------------------"
-
-          # Save cleaned JSON
-          jq -n --arg status "$NORMALIZED" --arg content "$EXTRACTED_BODY" \
-             '{status: $status, content: $content}' > "$CLEAN_FILE"
-
-          # Write PR comment exactly as expected: Status + Body
+          # Write PR comment in strict error format
           {
-            echo "Status: $NORMALIZED"
+            echo "Status: $STATUS"
             echo
-            printf "%s\n" "$EXTRACTED_BODY"
+            printf "%s\n" "$AI_COMMENT"
           } > ai_review_status.txt
 
+          echo "review_status=$STATUS" >> "$GITHUB_OUTPUT"
           echo "✅ PR comment written to ai_review_status.txt"
-
-          # Set output
-          echo "review_status=$NORMALIZED" >> "$GITHUB_OUTPUT"
 
       - name: Post AI Review as PR Comment
         env:

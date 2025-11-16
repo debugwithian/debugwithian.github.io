@@ -70,7 +70,7 @@ jobs:
             messages: [
               {
                 role: "system",
-                content: "You are a senior software engineer performing a strict code review. You MUST return ONLY a single valid JSON object with EXACTLY two keys: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"content\": \"Markdown PR comment\"}. The entire response must be valid JSON with all necessary escaping. Do NOT output anything outside the JSON object. Do NOT include multiple JSON objects. Markdown must remain inside the string."
+                content: "You are a senior software engineer performing a strict code review. Syntax errors & missing always produce critical error. Choose only 1 status: CRITICAL_ISSUE|IMPROVEMENTS|PASSED. You MUST return ONLY a single valid JSON object with EXACTLY two keys: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"content\": \"Markdown PR comment\"}. The entire response must be valid JSON with all necessary escaping. Do NOT output anything outside the JSON object. Do NOT include multiple JSON objects. Markdown must remain inside the string."
               },
               {
                 role: "user",

@@ -64,10 +64,9 @@ jobs:
           set -euo pipefail
           DIFF=$(<diff.txt)
 
-          # Plain text prompt, no JSON
+          # Plain text prompt
           PROMPT="You are a senior software engineer performing a strict code review. Include Status if it is Passed, Needs Improvement, or Critical. Review the following git diff for logic, syntax, style, performance, and security issues. Return your review as Markdown.\n\nDiff:\n$DIFF"
 
-          # Call AI API
           AI_COMMENT=$(curl -sS --fail https://api.groq.com/openai/v1/chat/completions \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $GROQ_API_KEY" \
@@ -81,12 +80,10 @@ jobs:
         run: |
           set -euo pipefail
           REVIEW_FILE="ai_review_output.txt"
-
-          # Read AI comment
           AI_COMMENT=$(<"$REVIEW_FILE")
 
           # Determine status
-          STATUS="IMPROVEMENTS"  # default fallback
+          STATUS="IMPROVEMENTS"
           if echo "$AI_COMMENT" | grep -iq "critical"; then
             if echo "$AI_COMMENT" | grep -iqE "no critical|not critical"; then
               STATUS="IMPROVEMENTS"
@@ -97,7 +94,7 @@ jobs:
             STATUS="PASSED"
           fi
 
-          # Write PR comment in strict error format
+          # Write PR comment
           {
             printf "%s\n" "$AI_COMMENT"
           } > ai_review_status.txt
@@ -145,11 +142,4 @@ jobs:
       - name: Deploy and restart app on AWS
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "
-            cd /home/ubuntu &&
-            git fetch origin prod_v2 &&
-            git reset --hard origin/prod_v2 &&
-            npm install &&
-            pm2 restart all &&
-            echo 'Deployment completed successfully'
-          "
+          ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "cd /home/ubuntu && git fetch origin prod_v2 && git reset --hard origin/prod_v2 && npm install && pm2 restart all && echo 'Deployment completed successfully'"

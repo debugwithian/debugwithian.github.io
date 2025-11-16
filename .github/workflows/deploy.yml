@@ -101,13 +101,17 @@ jobs:
           set -euo pipefail
 
           REVIEW_FILE="ai_review_output.txt"
+          CLEAN_FILE="ai_review_output_clean.json"
 
-          # SAFE: read AI JSON from file using heredoc-safe method
-          RAW=$(<ai_review_output.txt)
+          # Read AI JSON output from file
+          RAW=$(<"$REVIEW_FILE")
 
           echo "🔹 Raw AI output:"
           echo "$RAW"
           echo "----------------------------------------"
+
+          # Remove accidental code fences (```json / ```)
+          RAW=$(printf "%s" "$RAW" | sed -E 's/```json//g;s/```//g')
 
           # Validate JSON
           if ! jq -e . >/dev/null 2>&1 <<<"$RAW"; then
@@ -115,9 +119,11 @@ jobs:
               exit 1
           fi
 
+          # Extract status and content
           DETECTED_STATUS=$(jq -r '.status // "IMPROVEMENTS"' <<<"$RAW")
           EXTRACTED_BODY=$(jq -r '.content // ""' <<<"$RAW")
 
+          # Normalize status
           STATUS_UPPER=$(echo "$DETECTED_STATUS" | tr '[:lower:]' '[:upper:]' | tr -d ' ')
           case "$STATUS_UPPER" in
               CRITICALISSUE) NORMALIZED="CRITICAL_ISSUE" ;;
@@ -127,20 +133,30 @@ jobs:
           esac
 
           echo "🔹 Normalized Status: $NORMALIZED"
+          echo "----------------------------------------"
 
-          # Save validated JSON
+          # Create properly escaped JSON using jq
           jq -n --arg status "$NORMALIZED" --arg content "$EXTRACTED_BODY" \
-             '{status: $status, content: $content}' > ai_review_output_clean.json
+             '{status: $status, content: $content}' > "$CLEAN_FILE"
 
-          # Save PR comment
+          echo "✅ Cleaned JSON saved to $CLEAN_FILE"
+
+          # Write human-readable PR comment
           {
             echo "Status: $NORMALIZED"
             echo
             printf "%s\n" "$EXTRACTED_BODY"
           } > ai_review_status.txt
 
-          # Output status for next workflow steps
+          echo "✅ PR comment written to ai_review_status.txt"
+          echo "Preview:"
+          head -n 15 ai_review_status.txt
+          echo "----------------------------------------"
+
+          # Set output for next workflow steps
           echo "review_status=$NORMALIZED" >> "$GITHUB_OUTPUT"
+          echo "✅ review_status output set for workflow steps"
+
 
       - name: Post AI Review as PR Comment
         env:

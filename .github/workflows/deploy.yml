@@ -99,8 +99,6 @@ jobs:
 
           # Write PR comment in strict error format
           {
-            echo "Status: $STATUS"
-            echo
             printf "%s\n" "$AI_COMMENT"
           } > ai_review_status.txt
 

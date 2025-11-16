@@ -50,10 +50,10 @@ jobs:
 
           if ! git diff $BASE HEAD --quiet; then
             git diff $BASE HEAD > diff.txt
-            echo "diff_exists=true" >> $GITHUB_OUTPUT
+            echo "diff_exists=true" >> "$GITHUB_OUTPUT"
           else
             echo '{"status":"PASSED","content":"✅ No issues detected."}' > ai_review_output.txt
-            echo "diff_exists=false" >> $GITHUB_OUTPUT
+            echo "diff_exists=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Run AI Code Review (Groq)
@@ -70,11 +70,11 @@ jobs:
             messages: [
               {
                 role: "system",
-                content: "You are a senior software engineer performing a strict code review. You MUST return ONLY a single valid JSON object with EXACTLY two keys: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"content\": \"Markdown PR comment\"}. The entire response must be valid JSON with all necessary escaping. Do NOT output anything outside the JSON object. Do NOT include multiple JSON objects. Do NOT include commentary, explanation, or extra text before or after the JSON. Markdown must be inside the JSON string."
+                content: "You are a senior software engineer performing a strict code review. You MUST return ONLY a single valid JSON object with EXACTLY two keys: {\"status\": \"CRITICAL_ISSUE|IMPROVEMENTS|PASSED\", \"content\": \"Markdown PR comment\"}. The entire response must be valid JSON with all necessary escaping. Do NOT output anything outside the JSON object. Do NOT include multiple JSON objects. Markdown must remain inside the string."
               },
               {
                 role: "user",
-                content: ("Review the following git diff for logic, syntax, style, performance, and security issues. Return:\n- CRITICAL_ISSUE → critical/breaking issues\n- IMPROVEMENTS → non-critical improvements\n- PASSED → no issues\n\nReturn only valid JSON.\n\nDiff:\n\n" + $diff)
+                content: ("Review the following git diff for logic, syntax, style, performance, and security issues. Return only valid JSON.\n\nDiff:\n\n" + $diff)
               }
             ]
           }')
@@ -82,64 +82,65 @@ jobs:
           RAW_RESPONSE=$(curl -sS --fail https://api.groq.com/openai/v1/chat/completions \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $GROQ_API_KEY" \
-            --data-raw "$PAYLOAD") || exit 1
+            --data-raw "$PAYLOAD")
 
-          REVIEW_RAW=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
-          REVIEW_RAW=$(printf "%s" "$REVIEW_RAW" | sed -E 's/```json//g;s/```//g')
+          # Extract AI content safely
+          AI_JSON=$(echo "$RAW_RESPONSE" | jq -r '.choices[0].message.content // empty')
+          AI_JSON=$(printf "%s" "$AI_JSON" | sed -E 's/```json//g;s/```//g')
 
-          if [ -z "$REVIEW_RAW" ]; then
-            REVIEW_RAW='{"status":"PASSED","content":"No issues detected."}'
+          if [ -z "$AI_JSON" ]; then
+            AI_JSON='{"status":"PASSED","content":"No issues detected."}'
           fi
 
-          echo "$REVIEW_RAW" > ai_review_output.txt
-
-          # Export AI output for next step
-          echo "raw_response<<EOF" >> $GITHUB_OUTPUT
-          echo "$REVIEW_RAW" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          # Save AI JSON to file for next step
+          printf "%s" "$AI_JSON" > ai_review_output.txt
 
       - name: Analyze AI Review
         id: set_review_status
         run: |
           set -euo pipefail
+
           REVIEW_FILE="ai_review_output.txt"
 
-          RAW="${{ steps.run_ai.outputs.raw_response }}"
-
-          # Strip accidental code fences
-          RAW=$(printf "%s" "$RAW" | sed -E 's/```json//g;s/```//g')
-          SAFE_CONTENT=$(jq -Rs <<<"$RAW")
+          # SAFE: read AI JSON from file using heredoc-safe method
+          RAW=$(<ai_review_output.txt)
 
           echo "🔹 Raw AI output:"
           echo "$RAW"
           echo "----------------------------------------"
 
-          if jq -e . >/dev/null 2>&1 <<<"$RAW"; then
-              DETECTED_STATUS=$(jq -r '.status // "IMPROVEMENTS"' <<<"$RAW")
-              EXTRACTED_BODY=$(jq -r '.content // ""' <<<"$RAW")
-              echo "✅ JSON parsed successfully."
-          else
-              echo "❌ Invalid JSON from AI. Merge blocked."
+          # Validate JSON
+          if ! jq -e . >/dev/null 2>&1 <<<"$RAW"; then
+              echo "❌ AI returned invalid JSON. Merge blocked."
               exit 1
           fi
 
+          DETECTED_STATUS=$(jq -r '.status // "IMPROVEMENTS"' <<<"$RAW")
+          EXTRACTED_BODY=$(jq -r '.content // ""' <<<"$RAW")
+
           STATUS_UPPER=$(echo "$DETECTED_STATUS" | tr '[:lower:]' '[:upper:]' | tr -d ' ')
           case "$STATUS_UPPER" in
-            CRITICALISSUE) NORMALIZED="CRITICAL_ISSUE" ;;
-            IMPROVEMENTS) NORMALIZED="IMPROVEMENTS" ;;
-            PASSED) NORMALIZED="PASSED" ;;
-            *) NORMALIZED="IMPROVEMENTS" ;;
+              CRITICALISSUE) NORMALIZED="CRITICAL_ISSUE" ;;
+              IMPROVEMENTS) NORMALIZED="IMPROVEMENTS" ;;
+              PASSED) NORMALIZED="PASSED" ;;
+              *) NORMALIZED="IMPROVEMENTS" ;;
           esac
 
-          printf '{"status":"%s","content":%s}\n' "$NORMALIZED" "$SAFE_CONTENT" > "$REVIEW_FILE"
+          echo "🔹 Normalized Status: $NORMALIZED"
 
+          # Save validated JSON
+          jq -n --arg status "$NORMALIZED" --arg content "$EXTRACTED_BODY" \
+             '{status: $status, content: $content}' > ai_review_output_clean.json
+
+          # Save PR comment
           {
             echo "Status: $NORMALIZED"
             echo
             printf "%s\n" "$EXTRACTED_BODY"
           } > ai_review_status.txt
 
-          echo "review_status=$NORMALIZED" >> $GITHUB_OUTPUT
+          # Output status for next workflow steps
+          echo "review_status=$NORMALIZED" >> "$GITHUB_OUTPUT"
 
       - name: Post AI Review as PR Comment
         env:
@@ -149,12 +150,12 @@ jobs:
           JSON_BODY=$(jq -Rs --arg text "$COMMENT" '{body: $text}')
           PR_NUMBER=${{ github.event.pull_request.number }}
           REPO=${{ github.repository }}
-          API_URL="https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments"
+
           curl -sS -X POST \
                -H "Authorization: token $PAT_TOKEN" \
                -H "Content-Type: application/json" \
                -d "$JSON_BODY" \
-               "$API_URL"
+               "https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments"
 
       - name: Fail PR if Critical
         if: steps.set_review_status.outputs.review_status == 'CRITICAL_ISSUE'

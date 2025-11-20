@@ -522,3 +522,12 @@ span.icon-main {
     width: 200px;
     font-size: 1.5rem;
 }
+
+section#contact .card p, section#contact .card a {
+    font-size: 0.8rem;
+}
+
+section#contact .col-12.col-md-8.col-lg-8 {
+    align-items: center;
+    align-content: center;
+}

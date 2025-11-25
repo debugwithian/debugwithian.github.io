@@ -125,29 +125,31 @@ jobs:
       - name: Deploy Dynamic Branch Environment
         run: |
           ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "bash -c '
-            set -e
+          set -e
 
-            BRANCH=\"\${GITHUB_HEAD_REF:-\${GITHUB_REF##*/}}\"
-            DOMAIN=\"\$BRANCH.debugwithian.com\"
+          BRANCH=\"\${GITHUB_HEAD_REF:-\${GITHUB_REF##refs/heads/}}\"
+          DOMAIN=\"\$BRANCH.debugwithian.com\"
+          PORT=\$(comm -23 <(seq 8090 8500) <(sudo lsof -i -P -n | grep LISTEN | awk '\''{print \$9}'\'' | sed '\''s/.*://'\'')) | head -n1)
+          echo \"Using port: \$PORT for branch: \$BRANCH\"
 
-            PORT=\$(comm -23 <(seq 8090 8500) <(sudo lsof -i -P -n | grep LISTEN | awk '\''{print \$9}'\'' | sed '\''s/.*://'\'')) | head -n1)
-            echo \"Using port: \$PORT for branch: \$BRANCH\"
+          NGINX_FILE=\"/etc/nginx/sites-available/\$BRANCH.conf\"
 
-            NGINX_FILE=\"/etc/nginx/sites-available/\$BRANCH.conf\"
+          # Temporary Nginx config for certbot
+          sudo bash -c \"printf 'server { listen 80; listen [::]:80; server_name \$DOMAIN; location / { return 200 \\\"OK\\\"; } }' > \$NGINX_FILE\"
 
-            sudo bash -c 'printf '\''server { listen 80; listen [::]:80; server_name %s; location / { return 200 \"OK\"; } }'\'' \"\$DOMAIN\" > \$NGINX_FILE'
+          sudo ln -sf \$NGINX_FILE /etc/nginx/sites-enabled/
+          sudo systemctl reload nginx || true
 
-            sudo ln -sf \$NGINX_FILE /etc/nginx/sites-enabled/
-            sudo systemctl reload nginx || true
+          # Request SSL
+          sudo certbot --nginx -d \$DOMAIN --non-interactive --agree-tos -m ddiamanterbitwilio@gmail.com || true
 
-            sudo certbot --nginx -d \$DOMAIN --non-interactive --agree-tos -m ddiamanterbitwilio@gmail.com || true
+          # Overwrite Nginx config with real proxy
+          sudo bash -c \"printf 'server { listen 80; listen [::]:80; server_name \$DOMAIN; return 301 https://\$host\$request_uri; } server { listen 443 ssl http2; listen [::]:443 ssl http2; server_name \$DOMAIN; ssl_certificate /etc/letsencrypt/live/\$DOMAIN/fullchain.pem; ssl_certificate_key /etc/letsencrypt/live/\$DOMAIN/privkey.pem; include /etc/letsencrypt/options-ssl-nginx.conf; ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; location / { proxy_pass http://localhost:\$PORT; proxy_set_header Host \$host; proxy_set_header X-Real-IP \$remote_addr; proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto \$scheme; } }' > \$NGINX_FILE\"
 
-            sudo bash -c 'printf '\''server { listen 80; listen [::]:80; server_name %s; return 301 https://\$host\$request_uri; } server { listen 443 ssl http2; listen [::]:443 ssl http2; server_name %s; ssl_certificate /etc/letsencrypt/live/%s/fullchain.pem; ssl_certificate_key /etc/letsencrypt/live/%s/privkey.pem; include /etc/letsencrypt/options-ssl-nginx.conf; ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; location / { proxy_pass http://localhost:%d; proxy_set_header Host \$host; proxy_set_header X-Real-IP \$remote_addr; proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto \$scheme; } }'\'' \"\$DOMAIN\" \"\$DOMAIN\" \"\$DOMAIN\" \"\$DOMAIN\" \$PORT > \$NGINX_FILE'
-
-            sudo ln -sf \$NGINX_FILE /etc/nginx/sites-enabled/
-            sudo systemctl reload nginx
+          sudo ln -sf \$NGINX_FILE /etc/nginx/sites-enabled/
+          sudo systemctl reload nginx
           '"
-          
+
   deploy:
     name: 🚀 Deploy to AWS (prod_v2)
     runs-on: ubuntu-latest

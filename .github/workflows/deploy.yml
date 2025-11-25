@@ -107,7 +107,7 @@ jobs:
   deploy_dynamic_env:
     name: 🌐 Create Dynamic Branch Environment
     runs-on: ubuntu-latest
-    needs: ai_code_review
+    # needs: ai_code_review
     if: github.event_name == 'pull_request' 
     # && needs.ai_code_review.outputs.review_status != 'CRITICAL_ISSUE'
 

@@ -201,7 +201,7 @@ jobs:
 
             # 5️⃣ Test and reload Nginx safely
             sudo nginx -t && sudo systemctl reload nginx
-      ENDSSH
+        ENDSSH
 
      
   deploy:

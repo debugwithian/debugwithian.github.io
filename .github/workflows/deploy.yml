@@ -131,6 +131,10 @@ jobs:
            DOMAIN=\"\$BRANCH.debugwithian.com\"
            NGINX_FILE=\"/etc/nginx/sites-available/\$BRANCH.conf\"
           
+           # Define Nginx Configs as escaped variables for echo/printf
+           NGINX_TEMP_CONFIG=\"server {\\n    listen 80;\\n    listen [::]:80;\\n    server_name \${DOMAIN};\\n    location / {\\n        return 200 \\\"OK\\\";\\n    }\\n}\"
+           NGINX_FINAL_CONFIG=\"server {\\n    listen 80;\\n    listen [::]:80;\\n    server_name \${DOMAIN};\\n    return 301 https://\\\$host\\\$request_uri;\\n}\\n\\nserver {\\n    listen 443 ssl http2;\\n    listen [::]:443 ssl http2;\\n    server_name \${DOMAIN};\\n\\n    ssl_certificate /etc/letsencrypt/live/\${DOMAIN}/fullchain.pem;\\n    ssl_certificate_key /etc/letsencrypt/live/\${DOMAIN}/privkey.pem;\\n    include /etc/letsencrypt/options-ssl-nginx.conf;\\n    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;\\n\\n    location / {\\n        proxy_pass http://localhost:\${PORT};\\n        proxy_set_header Host \\\$host;\\n        proxy_set_header X-Real-IP \\\$remote_addr;\\n        proxy_set_header X-Forwarded-For \\\$proxy_add_x_forwarded_for;\\n        proxy_set_header X-Forwarded-Proto \\\$scheme;\\n    }\\n}\"
+          
            # Check if the Nginx config file already exists
            if [ -f \"\$NGINX_FILE\" ]; then
              echo \"Nginx config for \$DOMAIN already exists. Skipping domain creation and SSL request.\"
@@ -143,20 +147,10 @@ jobs:
              )
              echo \"Using port: \$PORT for branch: \$BRANCH\"
             
-             # Temporary Nginx config for certbot
-             # *** FIX 1: Quoting the EOF delimiter ***
-             sudo tee \$NGINX_FILE > /dev/null <<'EOF'
-         server {
-           listen 80;
-           listen [::]:80;
-           server_name \$DOMAIN;
-           location / {
-             return 200 \"OK\";
-           }
-         }
-         EOF
+             # Temporary Nginx config for certbot - *** NO HEREDOC ***
+             echo -e \"\$NGINX_TEMP_CONFIG\" | sudo tee \"\$NGINX_FILE\" > /dev/null
                
-             sudo ln -sf \$NGINX_FILE /etc/nginx/sites-enabled/
+             sudo ln -sf \"\$NGINX_FILE\" /etc/nginx/sites-enabled/
              sudo systemctl reload nginx || true
             
              # Request SSL
@@ -171,42 +165,16 @@ jobs:
              )
            fi
            echo \"Final port for configuration: \$PORT\"
-
-           # Overwrite Nginx config with real proxy
-           # *** FIX 2: Quoting the EOF delimiter ***
-           sudo tee \$NGINX_FILE > /dev/null <<'EOF'
-         server {
-           listen 80;
-           listen [::]:80;
-           server_name \$DOMAIN;
-           return 301 https://\$host\$request_uri;
-         }
-
-         server {
-           listen 443 ssl http2;
-           listen [::]:443 ssl http2;
-           server_name \$DOMAIN;
-
-           ssl_certificate /etc/letsencrypt/live/\$DOMAIN/fullchain.pem;
-           ssl_certificate_key /etc/letsencrypt/live/\$DOMAIN/privkey.pem;
-           include /etc/letsencrypt/options-ssl-nginx.conf;
-           ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
-
-           location / {
-             proxy_pass http://localhost:\$PORT;
-             proxy_set_header Host \$host;
-             proxy_set_header X-Real-IP \$remote_addr;
-             proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-             proxy_set_header X-Forwarded-Proto \$scheme;
-           }
-         }
-         EOF
           
-           sudo ln -sf \$NGINX_FILE /etc/nginx/sites-enabled/
+           # Overwrite Nginx config with real proxy - *** NO HEREDOC ***
+           # NGINX_FINAL_CONFIG contains the necessary variable expansions.
+           echo -e \"\$NGINX_FINAL_CONFIG\" | sudo tee \"\$NGINX_FILE\" > /dev/null
+          
+           sudo ln -sf \"\$NGINX_FILE\" /etc/nginx/sites-enabled/
            # Use config test before reload to check for syntax errors
            sudo nginx -t && sudo systemctl reload nginx
          '"
-              
+                 
   deploy:
     name: 🚀 Deploy to AWS (prod_v2)
     runs-on: ubuntu-latest

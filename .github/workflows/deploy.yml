@@ -46,7 +46,6 @@ jobs:
           git fetch origin +refs/pull/${{ github.event.pull_request.number }}/head:pr_branch
           git checkout pr_branch
           BASE=$(git merge-base HEAD origin/prod_v2)
-
           if ! git diff $BASE HEAD --quiet; then
             git diff $BASE HEAD > diff.txt
             echo "diff_exists=true" >> "$GITHUB_OUTPUT"
@@ -63,15 +62,12 @@ jobs:
         run: |
           set -e
           DIFF=$(<diff.txt)
-
           PROMPT="You are a strict senior engineer. Review the following git diff for logic, security, syntax, performance. Return Markdown with a final status: PASSED, NEEDS IMPROVEMENTS, or CRITICAL.\n\n$DIFF"
-
           AI_COMMENT=$(curl -sS --fail https://api.groq.com/openai/v1/chat/completions \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $GROQ_API_KEY" \
             -d "$(jq -n --arg prompt "$PROMPT" '{model: "llama-3.1-8b-instant", messages: [{role: "user", content: $prompt}]}')" \
             | jq -r '.choices[0].message.content // "No issues detected."')
-
           printf "%s" "$AI_COMMENT" > ai_review_output.txt
 
       - name: Analyze AI Review
@@ -79,7 +75,6 @@ jobs:
         run: |
           set -e
           AI_COMMENT=$(<ai_review_output.txt)
-
           STATUS="IMPROVEMENTS"
           if echo "$AI_COMMENT" | grep -iq "critical"; then
             if echo "$AI_COMMENT" | grep -iqE "no critical|not critical"; then
@@ -90,7 +85,6 @@ jobs:
           elif echo "$AI_COMMENT" | grep -iq "passed"; then
             STATUS="PASSED"
           fi
-
           echo "$AI_COMMENT" > ai_review_status.txt
           echo "review_status=$STATUS" >> "$GITHUB_OUTPUT"
 
@@ -133,49 +127,41 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "bash -c '
             set -e
-
             BRANCH=\"${GITHUB_HEAD_REF}\"
             DOMAIN=\"\$BRANCH.debugwithian.com\"
-
             PORT=\$(comm -23 <(seq 8090 8500 | sort) <(sudo lsof -i -P -n | grep LISTEN | awk '\''{print \$9}'\'' | sed '\''s/.*://'\'' | sort -u) | head -n 1)
             echo \"Using port: \$PORT for branch: \$BRANCH\"
-
             NGINX_FILE=\"/etc/nginx/sites-available/\$BRANCH.conf\"
 
-            sudo sh -c '\''cat > \$NGINX_FILE <<EOF
-server {
-    if (\$host = $DOMAIN) {
-        return 301 https://\$host\$request_uri;
-    }
-    listen 80;
-    listen [::]:80;
-    server_name $DOMAIN;
-    return 301 https://\$host\$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name $DOMAIN;
-
-    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
-    include /etc/letsencrypt/options-ssl-nginx.conf;
-    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
-
-    location / {
-        proxy_pass http://localhost:\$PORT;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-    }
-}
-EOF'\''
+            # Write Nginx config safely using printf
+            sudo printf '%s\n' \
+\"server {\" \
+\"    if (\$host = $DOMAIN) { return 301 https://\$host\$request_uri; }\" \
+\"    listen 80;\" \
+\"    listen [::]:80;\" \
+\"    server_name $DOMAIN;\" \
+\"    return 301 https://\$host\$request_uri;\" \
+\"}\" \
+\"server {\" \
+\"    listen 443 ssl http2;\" \
+\"    listen [::]:443 ssl http2;\" \
+\"    server_name $DOMAIN;\" \
+\"    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;\" \
+\"    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;\" \
+\"    include /etc/letsencrypt/options-ssl-nginx.conf;\" \
+\"    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;\" \
+\"    location / {\" \
+\"        proxy_pass http://localhost:\$PORT;\" \
+\"        proxy_set_header Host \$host;\" \
+\"        proxy_set_header X-Real-IP \$remote_addr;\" \
+\"        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;\" \
+\"        proxy_set_header X-Forwarded-Proto \$scheme;\" \
+\"    }\" \
+\"}\" \
+> \$NGINX_FILE
 
             sudo ln -sf \$NGINX_FILE /etc/nginx/sites-enabled/
             sudo systemctl reload nginx
-
             sudo certbot --nginx -d \$DOMAIN --non-interactive --agree-tos -m ddiamanterbitwilio@gmail.com || true
 
             cd /home/ubuntu
@@ -189,7 +175,6 @@ EOF'\''
 
             cd /home/ubuntu/\$BRANCH
             npm install
-
             pm2 delete \$BRANCH || true
             pm2 start npm --name \$BRANCH -- run start -- --port=\$PORT
             pm2 save

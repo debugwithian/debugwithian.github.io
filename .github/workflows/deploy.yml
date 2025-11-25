@@ -125,88 +125,86 @@ jobs:
       - name: Deploy Dynamic Branch Environment
         run: |
           ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 /bin/bash << 'EOF_SSH_SCRIPT'
-            set -e
-            
-            BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF##refs/heads/}}"
-            DOMAIN="$BRANCH.debugwithian.com"
-            NGINX_FILE="/etc/nginx/sites-available/$BRANCH.conf"
-            
-            # Check if the Nginx config file already exists
-            if [ -f "$NGINX_FILE" ]; then
-                echo "Nginx config for $DOMAIN already exists. Skipping domain creation and SSL request."
-            else
-                echo "Nginx config for $DOMAIN not found. Creating new domain and requesting SSL."
-                
-                # FIXED: Replaced complex comm -23 with robust grep -v -f and process substitution
-                # The Awk command is now safe as the whole script is wrapped in a quoted Heredoc.
-                PORT=$(
-                  (seq 8090 8500 | grep -v -f <(sudo lsof -i -P -n | grep LISTEN | awk '{print $9}' | sed 's/.*://') | head -n1) 2>/dev/null
-                )
-                echo "Using port: $PORT for branch: $BRANCH"
-                
-                # Temporary Nginx config for certbot
-                sudo tee $NGINX_FILE > /dev/null <<EOF
-                server {
-                    listen 80;
-                    listen [::]:80;
-                    server_name \$DOMAIN;
+          set -e
 
-                    location / {
-                        return 200 "OK";
-                    }
-                }
-                EOF
-                          
-                          sudo ln -sf $NGINX_FILE /etc/nginx/sites-enabled/
-                          sudo systemctl reload nginx || true
-                          
-                          # Request SSL
-                          sudo certbot --nginx -d $DOMAIN --non-interactive --agree-tos -m ddiamanterbitwilio@gmail.com || true
-                      fi
-                      
-                      # Overwrite Nginx config with real proxy (This step runs whether the config existed or was just created)
-                      # Port finding logic is now much cleaner
-                      if [ -z "$PORT" ]; then
-                          # If the domain config existed, we retrieve the port for the running service, 
-                          # or re-run the finding logic if no running service is associated.
-                          PORT=$(
-                            (seq 8090 8500 | grep -v -f <(sudo lsof -i -P -n | grep LISTEN | awk '{print $9}' | sed 's/.*://') | head -n1) 2>/dev/null
-                          )
-                      fi
-                      echo "Final port for configuration: $PORT"
-                      
-                      # Overwrite Nginx config with real proxy
-                      sudo tee $NGINX_FILE > /dev/null <<EOF
-                server {
-                    listen 80;
-                    listen [::]:80;
-                    server_name \$DOMAIN;
-                    return 301 https://\$host\$request_uri;
-                }
+          BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF##refs/heads/}}"
+          DOMAIN="$BRANCH.debugwithian.com"
+          NGINX_FILE="/etc/nginx/sites-available/$BRANCH.conf"
 
-                server {
-                    listen 443 ssl http2;
-                    listen [::]:443 ssl http2;
-                    server_name \$DOMAIN;
+          # Check if the Nginx config file already exists
+          if [ -f "$NGINX_FILE" ]; then
+              echo "Nginx config for $DOMAIN already exists. Skipping domain creation and SSL request."
+          else
+              echo "Nginx config for $DOMAIN not found. Creating new domain and requesting SSL."
+              
+              # FIXED: Replaced complex comm -23 with robust grep -v -f and process substitution
+              PORT=$(
+                (seq 8090 8500 | grep -v -f <(sudo lsof -i -P -n | grep LISTEN | awk '{print $9}' | sed 's/.*://') | head -n1) 2>/dev/null
+              )
+              echo "Using port: $PORT for branch: $BRANCH"
+              
+              # Temporary Nginx config for certbot
+              sudo tee $NGINX_FILE > /dev/null <<EOF
+          server {
+              listen 80;
+              listen [::]:80;
+              server_name \$DOMAIN;
 
-                    ssl_certificate /etc/letsencrypt/live/\$DOMAIN/fullchain.pem;
-                    ssl_certificate_key /etc/letsencrypt/live/\$DOMAIN/privkey.pem;
-                    include /etc/letsencrypt/options-ssl-nginx.conf;
-                    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+              location / {
+                  return 200 "OK";
+              }
+          }
+          EOF
+                        
+              sudo ln -sf $NGINX_FILE /etc/nginx/sites-enabled/
+              sudo systemctl reload nginx || true
+              
+              # Request SSL
+              sudo certbot --nginx -d $DOMAIN --non-interactive --agree-tos -m ddiamanterbitwilio@gmail.com || true
+          fi
 
-                    location / {
-                        proxy_pass http://localhost:\$PORT;
-                        proxy_set_header Host \$host;
-                        proxy_set_header X-Real-IP \$remote_addr;
-                        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-                        proxy_set_header X-Forwarded-Proto \$scheme;
-                    }
-                }
-                EOF
-                      
-                      sudo ln -sf $NGINX_FILE /etc/nginx/sites-enabled/
-                      sudo systemctl reload nginx
-                EOF_SSH_SCRIPT
+          # Overwrite Nginx config with real proxy (This step runs whether the config existed or was just created)
+          if [ -z "$PORT" ]; then
+              # If the domain config existed, we retrieve the port for the running service, 
+              # or re-run the finding logic if no running service is associated.
+              PORT=$(
+                (seq 8090 8500 | grep -v -f <(sudo lsof -i -P -n | grep LISTEN | awk '{print $9}' | sed 's/.*://') | head -n1) 2>/dev/null
+              )
+          fi
+          echo "Final port for configuration: $PORT"
+
+          # Overwrite Nginx config with real proxy
+          sudo tee $NGINX_FILE > /dev/null <<EOF
+          server {
+              listen 80;
+              listen [::]:80;
+              server_name \$DOMAIN;
+              return 301 https://\$host\$request_uri;
+          }
+
+          server {
+              listen 443 ssl http2;
+              listen [::]:443 ssl http2;
+              server_name \$DOMAIN;
+
+              ssl_certificate /etc/letsencrypt/live/\$DOMAIN/fullchain.pem;
+              ssl_certificate_key /etc/letsencrypt/live/\$DOMAIN/privkey.pem;
+              include /etc/letsencrypt/options-ssl-nginx.conf;
+              ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+              location / {
+                  proxy_pass http://localhost:\$PORT;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+              }
+          }
+          EOF
+
+          sudo ln -sf $NGINX_FILE /etc/nginx/sites-enabled/
+          sudo systemctl reload nginx
+          EOF_SSH_SCRIPT
               
   deploy:
     name: 🚀 Deploy to AWS (prod_v2)

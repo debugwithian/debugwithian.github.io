@@ -129,9 +129,6 @@ jobs:
           DOMAIN="$BRANCH.debugwithian.com"
           NGINX_FILE="/etc/nginx/sites-available/$BRANCH.conf"
 
-          # Remove any leftover unknown-branch config
-          sudo rm -f /etc/nginx/sites-enabled/unknown-branch.conf /etc/nginx/sites-available/unknown-branch.conf
-
           # Find a free port for this branch
           PORT=$(seq 8090 8500 | grep -v -f <(sudo lsof -i -P -n | awk '{print $9}') | head -n1)
           echo "Using port: $PORT for branch: $BRANCH"
@@ -168,13 +165,13 @@ jobs:
               }
           }"
 
-          # 2️⃣ Request SSL certificate if missing
+          # Request SSL certificate if missing
           if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
               echo "SSL certificate not found. Requesting cert for $DOMAIN..."
               sudo certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m ddiamanterbitwilio@gmail.com || true
           fi
 
-          # 1️⃣ Create temp config if missing
+          # Create temp config if missing
           if [ ! -f "$NGINX_FILE" ]; then
               echo "Creating temporary HTTP-only config for $DOMAIN..."
               echo "$NGINX_TEMP_CONFIG" | sudo tee "$NGINX_FILE" > /dev/null
@@ -182,7 +179,7 @@ jobs:
               sudo systemctl reload nginx || true
           fi
 
-          # 3️⃣ Overwrite Nginx config with HTTPS proxy if cert now exists
+          # Overwrite Nginx config with HTTPS proxy if cert now exists
           if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
               echo "Writing final HTTPS proxy config..."
               echo "$NGINX_FINAL_CONFIG" | sudo tee "$NGINX_FILE" > /dev/null

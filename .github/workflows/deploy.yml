@@ -126,50 +126,76 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "bash -c '
             set -e
-           
-            BRANCH=\"\${GITHUB_HEAD_REF:-\${GITHUB_REF##refs/heads/}}\"
-            DOMAIN=\"\$BRANCH.debugwithian.com\"
-            NGINX_FILE=\"/etc/nginx/sites-available/\$BRANCH.conf\"
 
-            # Define Nginx Configs as escaped single-line variables for robust shell execution.
-            # Nginx variables like \$host are escaped as \\\\\\$ to survive two levels of shell expansion.
-            # Prepending \\n ensures a clean start to prevent \"unknown directive n\" errors.
-            
-            # Configuration 1: Temporary HTTP-only config for the initial certbot run
-            NGINX_TEMP_CONFIG=\"\\nserver {\\n    listen 80;\\n    listen [::]:80;\\n    server_name \${DOMAIN};\\n    location / {\\n        return 200 \\\"OK\\\";\\n    }\\n}\"
-          
-            # Configuration 2: Final HTTPS/Proxy config (requires certificates)
-            NGINX_FINAL_CONFIG=\"\\nserver {\\n    listen 80;\\n    listen [::]:80;\\n    server_name \${DOMAIN};\\n    return 301 https://\\\\\$host\\\\\$request_uri;\\n}\\n\\nserver {\\n    listen 443 ssl http2;\\n    listen [::]:443 ssl http2;\\n    server_name \${DOMAIN};\\n\\n    ssl_certificate /etc/letsencrypt/live/\${DOMAIN}/fullchain.pem;\\n    ssl_certificate_key /etc/letsencrypt/live/\${DOMAIN}/privkey.pem;\\n    include /etc/letsencrypt/options-ssl-nginx.conf;\\n    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;\\n\\n    location / {\\n        proxy_pass http://localhost:\${PORT};\\n        proxy_set_header Host \\\\\$host;\\n        proxy_set_header X-Real-IP \\\\\$remote_addr;\\n        proxy_set_header X-Forwarded-For \\\\\$proxy_add_x_forwarded_for;\\n        proxy_set_header X-Forwarded-Proto \\\\\$scheme;\\n    }\\n}\"
-           
-            # Find a free port for this branch (needed regardless of config existence)
+            # Pass branch from GitHub Actions
+            BRANCH=${GITHUB_HEAD_REF:-${GITHUB_REF##refs/heads/}}
+            DOMAIN=\$BRANCH.debugwithian.com
+            NGINX_FILE=/etc/nginx/sites-available/\$BRANCH.conf
+
+            # Find a free port
             PORT=\$(
-             (seq 8090 8500 | grep -v -f <(sudo lsof -i -P -n | grep LISTEN | awk '\"'\"'{print \$9}'\"'\"' | sed '\''s/.*://'\'') | head -n1) 2>/dev/null
+              seq 8090 8500 | grep -v -f <(sudo lsof -i -P -n | grep LISTEN | awk '\''{print \$9}'\'') | head -n1
             )
             echo \"Using port: \$PORT for branch: \$BRANCH\"
 
-            # 1. Handle initial config creation and CONDITIONAL Certbot execution
-            if [ -f \"\$NGINX_FILE\" ]; then
-              echo \"Nginx config for \$DOMAIN already exists. Skipping config creation and SSL request.\"
+            # Temporary HTTP-only config for certbot
+            NGINX_TEMP_CONFIG=\"server {
+                listen 80;
+                listen [::]:80;
+                server_name \$DOMAIN;
+                location / { return 200 \\\"OK\\\"; }
+            }\"
+
+            # Final HTTPS proxy config
+            NGINX_FINAL_CONFIG=\"server {
+                listen 80;
+                listen [::]:80;
+                server_name \$DOMAIN;
+                return 301 https://\\\$host\\\$request_uri;
+            }
+
+            server {
+                listen 443 ssl http2;
+                listen [::]:443 ssl http2;
+                server_name \$DOMAIN;
+
+                ssl_certificate /etc/letsencrypt/live/\$DOMAIN/fullchain.pem;
+                ssl_certificate_key /etc/letsencrypt/live/\$DOMAIN/privkey.pem;
+                include /etc/letsencrypt/options-ssl-nginx.conf;
+                ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+                location / {
+                    proxy_pass http://localhost:\$PORT;
+                    proxy_set_header Host \\\$host;
+                    proxy_set_header X-Real-IP \\\$remote_addr;
+                    proxy_set_header X-Forwarded-For \\\$proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto \\\$scheme;
+                }
+            }\"
+
+            # 1️⃣ Only create config and request SSL if file doesn't exist
+            if [ ! -f \"\$NGINX_FILE\" ]; then
+                echo \"Creating temporary HTTP-only config for \$DOMAIN...\"
+                echo -e \"\$NGINX_TEMP_CONFIG\" | sudo tee \"\$NGINX_FILE\" > /dev/null
+                sudo ln -sf \"\$NGINX_FILE\" /etc/nginx/sites-enabled/
+                sudo systemctl reload nginx || true
+
+                echo \"Requesting SSL cert for \$DOMAIN...\"
+                sudo certbot --nginx -d \$DOMAIN --non-interactive --agree-tos -m ddiamanterbitwilio@gmail.com || true
             else
-              echo \"Nginx config for \$DOMAIN not found. Creating temporary HTTP-only config and requesting SSL.\"
-             
-              # Write temporary config for certbot
-              echo -e \"\$NGINX_TEMP_CONFIG\" | sudo tee \"\$NGINX_FILE\" > /dev/null
-                
-              sudo ln -sf \"\$NGINX_FILE\" /etc/nginx/sites-enabled/
-              sudo systemctl reload nginx || true
-             
-              # Request SSL (CONDITIONAL AS REQUESTED)
-              sudo certbot --nginx -d \$DOMAIN --non-interactive --agree-tos -m ddiamanterbitwilio@gmail.com || true
+                echo \"Config already exists, skipping certbot.\"
             fi
-           
-            # 2. Overwrite Nginx config with final HTTPS proxy (UNCONDITIONAL)
-            echo \"Overwriting config with final HTTPS proxy settings...\"
-            echo -e \"\$NGINX_FINAL_CONFIG\" | sudo tee \"\$NGINX_FILE\" > /dev/null
-           
-            sudo ln -sf \"\$NGINX_FILE\" /etc/nginx/sites-enabled/
-           
-            # 3. Final test and reload Nginx
+
+            # 2️⃣ Only write final HTTPS config if cert exists
+            if [ -f \"/etc/letsencrypt/live/\$DOMAIN/fullchain.pem\" ]; then
+                echo \"Writing final HTTPS proxy config...\"
+                echo -e \"\$NGINX_FINAL_CONFIG\" | sudo tee \"\$NGINX_FILE\" > /dev/null
+                sudo ln -sf \"\$NGINX_FILE\" /etc/nginx/sites-enabled/
+            else
+                echo \"SSL cert not found yet, keeping temporary HTTP-only config.\"
+            fi
+
+            # 3️⃣ Test and reload Nginx
             sudo nginx -t && sudo systemctl reload nginx
           '"
                  

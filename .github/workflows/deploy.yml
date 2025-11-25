@@ -138,8 +138,9 @@ jobs:
                   echo \"Nginx config for \$DOMAIN not found. Creating new domain and requesting SSL.\"
                   
                   # FIXED: Replaced complex comm -23 with robust grep -v -f and process substitution
+                  # **CORRECTED AWK QUOTING:** Using '"'"' to break the outer single quote, insert a literal single quote, and resume the outer single quote.
                   PORT=\$(
-                    (seq 8090 8500 | grep -v -f <(sudo lsof -i -P -n | grep LISTEN | awk '\''{print \$9}'\'' | sed '\''s/.*://'\'') | head -n1) 2>/dev/null
+                    (seq 8090 8500 | grep -v -f <(sudo lsof -i -P -n | grep LISTEN | awk '\"'\"'{print \$9}'\"'\"' | sed '\''s/.*://'\'') | head -n1) 2>/dev/null
                   )
                   echo \"Using port: \$PORT for branch: \$BRANCH\"
                   
@@ -164,14 +165,11 @@ jobs:
               fi
               
               # Overwrite Nginx config with real proxy (This step runs whether the config existed or was just created)
-              # The PORT variable is only set if the domain was NOT found, so we must set it if the domain already existed.
-              # If the domain config already exists, the necessary port is *assumed* to be correct in the existing config.
-              # To be fully safe, you might want a mechanism to retrieve the port from the existing file if it's skipped.
-              # For now, we reuse the existing PORT logic or set a placeholder if the config existed.
               if [ -z \"\$PORT\" ]; then
                   # If the domain config existed, we re-run the port finding logic to ensure PORT is set
+                  # **CORRECTED AWK QUOTING:** Same fix here.
                   PORT=\$(
-                    (seq 8090 8500 | grep -v -f <(sudo lsof -i -P -n | grep LISTEN | awk '\''{print \$9}'\'' | sed '\''s/.*://'\'') | head -n1) 2>/dev/null
+                    (seq 8090 8500 | grep -v -f <(sudo lsof -i -P -n | grep LISTEN | awk '\"'\"'{print \$9}'\"'\"' | sed '\''s/.*://'\'') | head -n1) 2>/dev/null
                   )
               fi
               echo \"Final port for configuration: \$PORT\"
@@ -208,6 +206,7 @@ jobs:
               sudo ln -sf \$NGINX_FILE /etc/nginx/sites-enabled/
               sudo systemctl reload nginx
           '"
+              
 
   deploy:
     name: 🚀 Deploy to AWS (prod_v2)

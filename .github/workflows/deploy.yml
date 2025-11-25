@@ -127,66 +127,83 @@ jobs:
           ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "bash -c '
               set -e
               
+              # 1. Setup Variables
               BRANCH=\"\${GITHUB_HEAD_REF:-\${GITHUB_REF##refs/heads/}}\"
               DOMAIN=\"\$BRANCH.debugwithian.com\"
-              # FIXED: Replaced complex comm -23 with robust grep -v -f and process substitution
-              PORT=\$(
-                (seq 8090 8500 | grep -v -f <(sudo lsof -i -P -n | grep LISTEN | awk '\''{print \$9}'\'' | sed '\''s/.*://'\'') | head -n1) 2>/dev/null
-              )
-              echo \"Using port: \$PORT for branch: \$BRANCH\"
               
               NGINX_FILE=\"/etc/nginx/sites-available/\$BRANCH.conf\"
               
-              # Temporary Nginx config for certbot
-              sudo tee \$NGINX_FILE > /dev/null <<EOF
-              server {
-                  listen 80;
-                  listen [::]:80;
-                  server_name \$DOMAIN;
-              
-                  location / {
-                      return 200 \"OK\";
+              # 2. Check if Domain Exists (i.e., Nginx config file exists)
+              if [[ -f \$NGINX_FILE ]]; then
+                  echo \"Domain \$DOMAIN already exists. Performing **pull/update only**.\"
+                  
+              else
+                  echo \"Domain \$DOMAIN is new. Starting **full provisioning**.\"
+
+                  # 3. Calculate Available Port (Moved into ELSE block)
+                  PORT=\$(
+                      (seq 8090 8500 | grep -v -f <(sudo lsof -i -P -n | grep LISTEN | awk '\''{print \$9}'\'' | sed '\''s/.*://'\'') | head -n1) 2>/dev/null
+                  )
+                  if [[ -z \"\$PORT\" ]]; then
+                      echo \"Error: No free ports found in range 8090-8500.\" >&2
+                      exit 1
+                  fi
+                  echo \"Using port: \$PORT for branch: \$BRANCH\"
+
+                  # 4. Temporary Nginx config for certbot
+                  sudo tee \$NGINX_FILE > /dev/null <<EOF
+                  server {
+                      listen 80;
+                      listen [::]:80;
+                      server_name \$DOMAIN;
+                  
+                      location / {
+                          return 200 \"OK\";
+                      }
                   }
-              }
-              EOF
-              
-              sudo ln -sf \$NGINX_FILE /etc/nginx/sites-enabled/
-              sudo systemctl reload nginx || true
-              
-              # Request SSL
-              sudo certbot --nginx -d \$DOMAIN --non-interactive --agree-tos -m ddiamanterbitwilio@gmail.com || true
-              
-              # Overwrite Nginx config with real proxy
-              sudo tee \$NGINX_FILE > /dev/null <<EOF
-              server {
-                  listen 80;
-                  listen [::]:80;
-                  server_name \$DOMAIN;
-                  return 301 https://\$host\$request_uri;
-              }
-              
-              server {
-                  listen 443 ssl http2;
-                  listen [::]:443 ssl http2;
-                  server_name \$DOMAIN;
-              
-                  ssl_certificate /etc/letsencrypt/live/\$DOMAIN/fullchain.pem;
-                  ssl_certificate_key /etc/letsencrypt/live/\$DOMAIN/privkey.pem;
-                  include /etc/letsencrypt/options-ssl-nginx.conf;
-                  ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
-              
-                  location / {
-                      proxy_pass http://localhost:\$PORT;
-                      proxy_set_header Host \$host;
-                      proxy_set_header X-Real-IP \$remote_addr;
-                      proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-                      proxy_set_header X-Forwarded-Proto \$scheme;
+                  EOF
+                  
+                  sudo ln -sf \$NGINX_FILE /etc/nginx/sites-enabled/
+                  sudo systemctl reload nginx || true
+                  
+                  # 5. Request SSL
+                  sudo certbot --nginx -d \$DOMAIN --non-interactive --agree-tos -m ddiamanterbitwilio@gmail.com || true
+                  
+                  # 6. Overwrite Nginx config with real proxy
+                  sudo tee \$NGINX_FILE > /dev/null <<EOF
+                  server {
+                      listen 80;
+                      listen [::]:80;
+                      server_name \$DOMAIN;
+                      return 301 https://\$host\$request_uri;
                   }
-              }
-              EOF
-              
-              sudo ln -sf \$NGINX_FILE /etc/nginx/sites-enabled/
-              sudo systemctl reload nginx
+                  
+                  server {
+                      listen 443 ssl http2;
+                      listen [::]:443 ssl http2;
+                      server_name \$DOMAIN;
+                  
+                      ssl_certificate /etc/letsencrypt/live/\$DOMAIN/fullchain.pem;
+                      ssl_certificate_key /etc/letsencrypt/live/\$DOMAIN/privkey.pem;
+                      include /etc/letsencrypt/options-ssl-nginx.conf;
+                      ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+                  
+                      location / {
+                          proxy_pass http://localhost:\$PORT;
+                          proxy_set_header Host \$host;
+                          proxy_set_header X-Real-IP \$remote_addr;
+                          proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                          proxy_set_header X-Forwarded-Proto \$scheme;
+                      }
+                  }
+                  EOF
+                  
+                  sudo ln -sf \$NGINX_FILE /etc/nginx/sites-enabled/
+                  sudo systemctl reload nginx
+                  
+                  # 7. Start your application on the new \$PORT here
+                  
+              fi
           '"
 
   deploy:

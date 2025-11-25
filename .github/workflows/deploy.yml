@@ -125,84 +125,83 @@ jobs:
       - name: Deploy Dynamic Branch Environment
         run: |
           ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "BRANCH=${GITHUB_HEAD_REF:-${GITHUB_REF##refs/heads/}} bash -s" <<'ENDSSH'
-            set -e
+          set -e
 
-            DOMAIN="$BRANCH.debugwithian.com"
-            NGINX_FILE="/etc/nginx/sites-available/$BRANCH.conf"
-            WEBROOT="/var/www/$DOMAIN"
+          DOMAIN="$BRANCH.debugwithian.com"
+          NGINX_FILE="/etc/nginx/sites-available/$BRANCH.conf"
+          WEBROOT="/var/www/$DOMAIN"
 
-            # Find a free port for this branch
-            PORT=$(seq 8090 8500 | grep -v -f <(sudo lsof -i -P -n | awk '{print $9}') | head -n1)
-            echo "Using port: $PORT for branch: $BRANCH"
+          # Find a free port for this branch
+          PORT=$(seq 8090 8500 | grep -v -f <(sudo lsof -i -P -n | awk '{print $9}') | head -n1)
+          echo "Using port: $PORT for branch: $BRANCH"
 
-            # 1️⃣ Create webroot directory for Certbot
-            sudo mkdir -p "$WEBROOT"
-            sudo chown -R ubuntu:ubuntu "$WEBROOT"
-            echo "ok" | sudo tee "$WEBROOT/index.html" > /dev/null
+          # 1️⃣ Create webroot directory for Certbot
+          sudo mkdir -p "$WEBROOT"
+          sudo chown -R ubuntu:ubuntu "$WEBROOT"
+          echo "ok" | sudo tee "$WEBROOT/index.html" > /dev/null
 
-            # 2️⃣ Temporary HTTP-only Nginx config
-            NGINX_TEMP_CONFIG="server {
-                listen 80;
-                listen [::]:80;
-                server_name $DOMAIN;
-                root $WEBROOT;
-                location / { try_files \$uri \$uri/ =404; }
-            }"
+          # 2️⃣ Temporary HTTP-only Nginx config
+          NGINX_TEMP_CONFIG="server {
+              listen 80;
+              listen [::]:80;
+              server_name $DOMAIN;
+              root $WEBROOT;
+              location / { try_files \$uri \$uri/ =404; }
+          }"
 
-            if [ ! -f "$NGINX_FILE" ]; then
-                echo "Creating temporary HTTP-only config for $DOMAIN..."
-                echo "$NGINX_TEMP_CONFIG" | sudo tee "$NGINX_FILE" > /dev/null
-                sudo ln -sf "$NGINX_FILE" /etc/nginx/sites-enabled/
-            fi
+          if [ ! -f "$NGINX_FILE" ]; then
+              echo "Creating temporary HTTP-only config for $DOMAIN..."
+              echo "$NGINX_TEMP_CONFIG" | sudo tee "$NGINX_FILE" > /dev/null
+              sudo ln -sf "$NGINX_FILE" /etc/nginx/sites-enabled/
+          fi
 
-            # Test and reload Nginx
-            sudo nginx -t
-            sudo systemctl reload nginx
+          # Test and reload Nginx
+          sudo nginx -t
+          sudo systemctl reload nginx
 
-            # 3️⃣ Request SSL certificate using webroot
-            if [ ! -d "/etc/letsencrypt/live/$DOMAIN" ]; then
-                echo "SSL certificate not found. Requesting cert for $DOMAIN..."
-                sudo certbot certonly --webroot -w "$WEBROOT" -d "$DOMAIN" --non-interactive --agree-tos -m ddiamanterbitwilio@gmail.com || true
-            fi
+          # 3️⃣ Request SSL certificate using webroot
+          if [ ! -d "/etc/letsencrypt/live/$DOMAIN" ]; then
+              echo "SSL certificate not found. Requesting cert for $DOMAIN..."
+              sudo certbot certonly --webroot -w "$WEBROOT" -d "$DOMAIN" --non-interactive --agree-tos -m ddiamanterbitwilio@gmail.com || true
+          fi
 
-            # 4️⃣ Final HTTPS + proxy config
-            NGINX_FINAL_CONFIG="server {
-                listen 80;
-                listen [::]:80;
-                server_name $DOMAIN;
-                return 301 https://\$host\$request_uri;
-            }
-            server {
-                listen 443 ssl http2;
-                listen [::]:443 ssl http2;
-                server_name $DOMAIN;
+          # 4️⃣ Final HTTPS + proxy config
+          NGINX_FINAL_CONFIG="server {
+              listen 80;
+              listen [::]:80;
+              server_name $DOMAIN;
+              return 301 https://\$host\$request_uri;
+          }
+          server {
+              listen 443 ssl http2;
+              listen [::]:443 ssl http2;
+              server_name $DOMAIN;
 
-                ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
-                ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
-                include /etc/letsencrypt/options-ssl-nginx.conf;
-                ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+              ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
+              ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
+              include /etc/letsencrypt/options-ssl-nginx.conf;
+              ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
-                location / {
-                    proxy_pass http://localhost:$PORT;
-                    proxy_set_header Host \$host;
-                    proxy_set_header X-Real-IP \$remote_addr;
-                    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto \$scheme;
-                }
-            }"
+              location / {
+                  proxy_pass http://localhost:$PORT;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+              }
+          }"
 
-            if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
-                echo "Writing final HTTPS proxy config for $DOMAIN..."
-                echo "$NGINX_FINAL_CONFIG" | sudo tee "$NGINX_FILE" > /dev/null
-                sudo ln -sf "$NGINX_FILE" /etc/nginx/sites-enabled/
-            else
-                echo "SSL cert for $DOMAIN still missing. Keeping temporary HTTP-only config."
-            fi
+          if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+              echo "Writing final HTTPS proxy config for $DOMAIN..."
+              echo "$NGINX_FINAL_CONFIG" | sudo tee "$NGINX_FILE" > /dev/null
+              sudo ln -sf "$NGINX_FILE" /etc/nginx/sites-enabled/
+          else
+              echo "SSL cert for $DOMAIN still missing. Keeping temporary HTTP-only config."
+          fi
 
-            # 5️⃣ Test and reload Nginx safely
-            sudo nginx -t && sudo systemctl reload nginx
-        ENDSSH
-
+          # 5️⃣ Test and reload Nginx safely
+          sudo nginx -t && sudo systemctl reload nginx
+          ENDSSH
      
   deploy:
     name: 🚀 Deploy to AWS (prod_v2)

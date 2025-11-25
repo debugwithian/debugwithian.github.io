@@ -4,116 +4,13 @@ on:
   pull_request:
     branches:
       - prod_v2
-    types:
-      - opened
-      - synchronize
-      - reopened
+    types: [opened, synchronize, reopened]
   push:
     branches:
       - prod_v2
   workflow_dispatch:
 
 jobs:
-<<<<<<< Updated upstream
-  ai_code_review:
-    name: 🤖 AI Code Review
-||||||| Stash base
-  # ai_code_review:
-  #   name: 🤖 AI Code Review
-  #   runs-on: ubuntu-latest
-  #   if: github.event_name == 'pull_request' && github.event.pull_request.merged == false
-  #   outputs:
-  #     review_status: ${{ steps.set_review_status.outputs.review_status }}
-
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0
-
-  #     - name: Install dependencies
-  #       run: sudo apt-get update && sudo apt-get install -y jq curl
-
-  #     - name: Validate secrets
-  #       env:
-  #         GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-  #         PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
-  #       run: |
-  #         : "${GROQ_API_KEY:?GROQ_API_KEY is not set}"
-  #         : "${PAT_TOKEN:?PAT_TOKEN is not set}"
-  #         echo "✅ Secrets validated."
-
-  #     - name: Generate Git Diff for PR branch
-  #       id: generate_diff
-  #       run: |
-  #         set -e
-  #         git fetch origin prod_v2
-  #         git fetch origin +refs/pull/${{ github.event.pull_request.number }}/head:pr_branch
-  #         git checkout pr_branch
-  #         BASE=$(git merge-base HEAD origin/prod_v2)
-  #         if ! git diff $BASE HEAD --quiet; then
-  #           git diff $BASE HEAD > diff.txt
-  #           echo "diff_exists=true" >> "$GITHUB_OUTPUT"
-  #         else
-  #           echo "No issues detected." > ai_review_output.txt
-  #           echo "diff_exists=false" >> "$GITHUB_OUTPUT"
-  #         fi
-
-  #     - name: Run AI Code Review (Groq)
-  #       id: run_ai
-  #       if: steps.generate_diff.outputs.diff_exists == 'true'
-  #       env:
-  #         GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-  #       run: |
-  #         set -e
-  #         DIFF=$(<diff.txt)
-  #         PROMPT="You are a strict senior engineer. Review the following git diff for logic, security, syntax, performance. Return Markdown with a final status: PASSED, NEEDS IMPROVEMENTS, or CRITICAL.\n\n$DIFF"
-  #         AI_COMMENT=$(curl -sS --fail https://api.groq.com/openai/v1/chat/completions \
-  #           -H "Content-Type: application/json" \
-  #           -H "Authorization: Bearer $GROQ_API_KEY" \
-  #           -d "$(jq -n --arg prompt "$PROMPT" '{model: "llama-3.1-8b-instant", messages: [{role: "user", content: $prompt}]}')" \
-  #           | jq -r '.choices[0].message.content // "No issues detected."')
-  #         printf "%s" "$AI_COMMENT" > ai_review_output.txt
-
-  #     - name: Analyze AI Review
-  #       id: set_review_status
-  #       run: |
-  #         set -e
-  #         AI_COMMENT=$(<ai_review_output.txt)
-  #         STATUS="IMPROVEMENTS"
-  #         if echo "$AI_COMMENT" | grep -iq "critical"; then
-  #           if echo "$AI_COMMENT" | grep -iqE "no critical|not critical"; then
-  #             STATUS="IMPROVEMENTS"
-  #           else
-  #             STATUS="CRITICAL_ISSUE"
-  #           fi
-  #         elif echo "$AI_COMMENT" | grep -iq "passed"; then
-  #           STATUS="PASSED"
-  #         fi
-  #         echo "$AI_COMMENT" > ai_review_status.txt
-  #         echo "review_status=$STATUS" >> "$GITHUB_OUTPUT"
-
-  #     - name: Post Review to PR
-  #       env:
-  #         PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
-  #       run: |
-  #         COMMENT=$(<ai_review_status.txt)
-  #         JSON=$(jq -Rs --arg c "$COMMENT" '{body: $c}')
-  #         curl -sS -X POST \
-  #              -H "Authorization: token $PAT_TOKEN" \
-  #              -H "Content-Type: application/json" \
-  #              -d "$JSON" \
-  #              "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments"
-
-      # - name: Fail on Critical
-      #   if: steps.set_review_status.outputs.review_status == 'CRITICAL_ISSUE'
-      #   run: |
-      #     echo "❌ Critical issues found. Blocking."
-      #     exit 1
-
-  deploy_dynamic_env:
-    name: 🌐 Create Dynamic Branch Environment
-=======
   ai_code_review:
     name: 🤖 AI Code Review
     runs-on: ubuntu-latest
@@ -209,126 +106,104 @@ jobs:
 
   deploy_dynamic_env:
     name: 🌐 Create Dynamic Branch Environment
->>>>>>> Stashed changes
     runs-on: ubuntu-latest
-<<<<<<< Updated upstream
-    if: github.event_name == 'pull_request' && github.event.pull_request.merged == false
-    outputs:
-      review_status: ${{ steps.set_review_status.outputs.review_status }}
-||||||| Stash base
-    # needs: ai_code_review
-    if: github.event_name == 'pull_request' 
-    # && needs.ai_code_review.outputs.review_status != 'CRITICAL_ISSUE'
-=======
     needs: ai_code_review
     if: github.event_name == 'pull_request' && needs.ai_code_review.outputs.review_status != 'CRITICAL_ISSUE'
->>>>>>> Stashed changes
 
     steps:
-      - name: Checkout code
+      - name: Checkout Repo
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y jq curl
-
-      - name: Validate secrets
-        env:
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+      - name: Add SSH Key
         run: |
-          : "${GROQ_API_KEY:?GROQ_API_KEY is not set}"
-          : "${PAT_TOKEN:?PAT_TOKEN is not set}"
-          echo "✅ Secrets validated."
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H 3.232.21.89 >> ~/.ssh/known_hosts
 
-      - name: Generate Git Diff for PR branch
-        id: generate_diff
+      - name: Deploy Dynamic Branch Environment
         run: |
-          set -euo pipefail
-          git fetch origin prod_v2
-          git fetch origin +refs/pull/${{ github.event.pull_request.number }}/head:pr_branch
-          git checkout pr_branch
-          BASE=$(git merge-base HEAD origin/prod_v2)
+          ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "BRANCH=${GITHUB_HEAD_REF:-${GITHUB_REF##refs/heads/}} bash -s" <<'ENDSSH'
+          set -e
 
-          if ! git diff $BASE HEAD --quiet; then
-            git diff $BASE HEAD > diff.txt
-            echo "diff_exists=true" >> "$GITHUB_OUTPUT"
+          DOMAIN="$BRANCH.debugwithian.com"
+          NGINX_FILE="/etc/nginx/sites-available/$BRANCH.conf"
+          WEBROOT="/var/www/$DOMAIN"
+
+          # Find a free port for this branch
+          PORT=$(seq 8090 8500 | grep -v -f <(sudo lsof -i -P -n | awk '{print $9}') | head -n1)
+          echo "Using port: $PORT for branch: $BRANCH"
+
+          # 1️⃣ Create webroot directory for Certbot
+          sudo mkdir -p "$WEBROOT"
+          sudo chown -R ubuntu:ubuntu "$WEBROOT"
+          echo "ok" | sudo tee "$WEBROOT/index.html" > /dev/null
+
+          # 2️⃣ Temporary HTTP-only Nginx config
+          NGINX_TEMP_CONFIG="server {
+              listen 80;
+              listen [::]:80;
+              server_name $DOMAIN;
+              root $WEBROOT;
+              location / { try_files \$uri \$uri/ =404; }
+          }"
+
+          if [ ! -f "$NGINX_FILE" ]; then
+              echo "Creating temporary HTTP-only config for $DOMAIN..."
+              echo "$NGINX_TEMP_CONFIG" | sudo tee "$NGINX_FILE" > /dev/null
+              sudo ln -sf "$NGINX_FILE" /etc/nginx/sites-enabled/
+          fi
+
+          # Test and reload Nginx
+          sudo nginx -t
+          sudo systemctl reload nginx
+
+          # 3️⃣ Request SSL certificate using webroot
+          if [ ! -d "/etc/letsencrypt/live/$DOMAIN" ]; then
+              echo "SSL certificate not found. Requesting cert for $DOMAIN..."
+              sudo certbot certonly --webroot -w "$WEBROOT" -d "$DOMAIN" --non-interactive --agree-tos -m ddiamanterbitwilio@gmail.com || true
+          fi
+
+          # 4️⃣ Final HTTPS + proxy config
+          NGINX_FINAL_CONFIG="server {
+              listen 80;
+              listen [::]:80;
+              server_name $DOMAIN;
+              return 301 https://\$host\$request_uri;
+          }
+          server {
+              listen 443 ssl http2;
+              listen [::]:443 ssl http2;
+              server_name $DOMAIN;
+
+              ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
+              ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
+              include /etc/letsencrypt/options-ssl-nginx.conf;
+              ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+              location / {
+                  proxy_pass http://localhost:$PORT;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+              }
+          }"
+
+          if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+              echo "Writing final HTTPS proxy config for $DOMAIN..."
+              echo "$NGINX_FINAL_CONFIG" | sudo tee "$NGINX_FILE" > /dev/null
+              sudo ln -sf "$NGINX_FILE" /etc/nginx/sites-enabled/
           else
-            echo "No issues detected." > ai_review_output.txt
-            echo "diff_exists=false" >> "$GITHUB_OUTPUT"
+              echo "SSL cert for $DOMAIN still missing. Keeping temporary HTTP-only config."
           fi
 
-      - name: Run AI Code Review (Groq)
-        id: run_ai
-        if: steps.generate_diff.outputs.diff_exists == 'true'
-        env:
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-        run: |
-          set -euo pipefail
-          DIFF=$(<diff.txt)
-
-          # Plain text prompt
-          PROMPT="You are a senior software engineer performing a strict code review. Include Status if it is Passed, Needs Improvement, or Critical. Review the following git diff for logic, syntax, style, performance, and security issues. Return your review as Markdown.\n\nDiff:\n$DIFF"
-
-          AI_COMMENT=$(curl -sS --fail https://api.groq.com/openai/v1/chat/completions \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $GROQ_API_KEY" \
-            -d "$(jq -n --arg prompt "$PROMPT" '{model: "llama-3.1-8b-instant", messages: [{role: "user", content: $prompt}]}')" \
-            | jq -r '.choices[0].message.content // "No issues detected."')
-
-          printf "%s" "$AI_COMMENT" > ai_review_output.txt
-
-      - name: Analyze AI Review
-        id: set_review_status
-        run: |
-          set -euo pipefail
-          REVIEW_FILE="ai_review_output.txt"
-          AI_COMMENT=$(<"$REVIEW_FILE")
-
-          # Determine status
-          STATUS="IMPROVEMENTS"
-          if echo "$AI_COMMENT" | grep -iq "critical"; then
-            if echo "$AI_COMMENT" | grep -iqE "no critical|not critical"; then
-              STATUS="IMPROVEMENTS"
-            else
-              STATUS="CRITICAL_ISSUE"
-            fi
-          elif echo "$AI_COMMENT" | grep -iq "no issues"; then
-            STATUS="PASSED"
-          fi
-
-          # Write PR comment
-          {
-            printf "%s\n" "$AI_COMMENT"
-          } > ai_review_status.txt
-
-          echo "review_status=$STATUS" >> "$GITHUB_OUTPUT"
-          echo "✅ PR comment written to ai_review_status.txt"
-
-      - name: Post AI Review as PR Comment
-        env:
-          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
-        run: |
-          COMMENT=$(<ai_review_status.txt)
-          JSON_BODY=$(jq -Rs --arg text "$COMMENT" '{body: $text}')
-          PR_NUMBER=${{ github.event.pull_request.number }}
-          REPO=${{ github.repository }}
-
-          curl -sS -X POST \
-               -H "Authorization: token $PAT_TOKEN" \
-               -H "Content-Type: application/json" \
-               -d "$JSON_BODY" \
-               "https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments"
-
-      - name: Fail PR if Critical
-        if: steps.set_review_status.outputs.review_status == 'CRITICAL_ISSUE'
-        run: |
-          echo "❌ CRITICAL issues detected. Merge blocked."
-          exit 1
-
+          # 5️⃣ Test and reload Nginx safely
+          sudo nginx -t && sudo systemctl reload nginx
+          ENDSSH
+     
   deploy:
-    name: 🚀 Deploy to AWS
+    name: 🚀 Deploy to AWS (prod_v2)
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/prod_v2'
 
@@ -345,5 +220,13 @@ jobs:
 
       - name: Deploy and restart app on AWS
         run: |
-          set -euo pipefail
-          ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "cd /home/ubuntu && git fetch origin prod_v2 && git reset --hard origin/prod_v2 && npm install && pm2 restart all && echo 'Deployment completed successfully'"
+          ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 '
+            set -e
+            cd /home/ubuntu
+            git fetch origin prod_v2
+            git reset --hard origin/prod_v2
+            npm install
+            pm2 restart all
+            pm2 save
+            echo "✅ Production deployment completed successfully"
+          '

@@ -125,87 +125,87 @@ jobs:
       - name: Deploy Dynamic Branch Environment
         run: |
           ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 /bin/bash << 'EOF_SSH_SCRIPT'
-set -e
+          set -e
 
-BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF##refs/heads/}}"
-DOMAIN="$BRANCH.debugwithian.com"
-NGINX_FILE="/etc/nginx/sites-available/$BRANCH.conf"
+          BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF##refs/heads/}}"
+          DOMAIN="$BRANCH.debugwithian.com"
+          NGINX_FILE="/etc/nginx/sites-available/$BRANCH.conf"
 
-# Check if the Nginx config file already exists
-if [ -f "$NGINX_FILE" ]; then
-    echo "Nginx config for $DOMAIN already exists. Skipping domain creation and SSL request."
-else
-    echo "Nginx config for $DOMAIN not found. Creating new domain and requesting SSL."
-    
-    PORT=$(
-      (seq 8090 8500 | grep -v -f <(sudo lsof -i -P -n | grep LISTEN | awk '{print $9}' | sed 's/.*://') | head -n1) 2>/dev/null
-    )
-    echo "Using port: $PORT for branch: $BRANCH"
-    
-    # Temporary Nginx config for certbot - Using <<-EOF for consistent indentation
-    sudo tee $NGINX_FILE > /dev/null <<EOF
-server {
-    listen 80;
-    listen [::]:80;
-    server_name \$DOMAIN;
-
-    location / {
-        return 200 "OK";
-    }
-}
-EOF
+          # Check if the Nginx config file already exists
+          if [ -f "$NGINX_FILE" ]; then
+              echo "Nginx config for $DOMAIN already exists. Skipping domain creation and SSL request."
+          else
+              echo "Nginx config for $DOMAIN not found. Creating new domain and requesting SSL."
               
-    sudo ln -sf $NGINX_FILE /etc/nginx/sites-enabled/
-    sudo systemctl reload nginx || true
-    
-    # Request SSL
-    sudo certbot --nginx -d $DOMAIN --non-interactive --agree-tos -m ddiamanterbitwilio@gmail.com || true
-fi
+              PORT=$(
+                (seq 8090 8500 | grep -v -f <(sudo lsof -i -P -n | grep LISTEN | awk '{print $9}' | sed 's/.*://') | head -n1) 2>/dev/null
+              )
+              echo "Using port: $PORT for branch: $BRANCH"
+              
+              # Temporary Nginx config for certbot - Using <<-EOF for consistent indentation
+              sudo tee $NGINX_FILE > /dev/null <<EOF
+          server {
+              listen 80;
+              listen [::]:80;
+              server_name \$DOMAIN;
 
-# Overwrite Nginx config with real proxy
-if [ -z "$PORT" ]; then
-    # We must retrieve the port from the EXISTING NGINX FILE if it wasn't created, 
-    # as simply finding a *free* port might be incorrect for a persistent environment.
-    # We'll use the existing logic for now, but this is a potential weakness.
-    PORT=$(
-      (seq 8090 8500 | grep -v -f <(sudo lsof -i -P -n | grep LISTEN | awk '{print $9}' | sed 's/.*://') | head -n1) 2>/dev/null
-    )
-fi
-echo "Final port for configuration: $PORT"
+              location / {
+                  return 200 "OK";
+              }
+          }
+          EOF
+                        
+              sudo ln -sf $NGINX_FILE /etc/nginx/sites-enabled/
+              sudo systemctl reload nginx || true
+              
+              # Request SSL
+              sudo certbot --nginx -d $DOMAIN --non-interactive --agree-tos -m ddiamanterbitwilio@gmail.com || true
+          fi
 
-# Overwrite Nginx config with real proxy
-sudo tee $NGINX_FILE > /dev/null <<EOF
-server {
-    listen 80;
-    listen [::]:80;
-    server_name \$DOMAIN;
-    return 301 https://\$host\$request_uri;
-}
+          # Overwrite Nginx config with real proxy
+          if [ -z "$PORT" ]; then
+              # We must retrieve the port from the EXISTING NGINX FILE if it wasn't created, 
+              # as simply finding a *free* port might be incorrect for a persistent environment.
+              # We'll use the existing logic for now, but this is a potential weakness.
+              PORT=$(
+                (seq 8090 8500 | grep -v -f <(sudo lsof -i -P -n | grep LISTEN | awk '{print $9}' | sed 's/.*://') | head -n1) 2>/dev/null
+              )
+          fi
+          echo "Final port for configuration: $PORT"
 
-server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name \$DOMAIN;
+          # Overwrite Nginx config with real proxy
+          sudo tee $NGINX_FILE > /dev/null <<EOF
+          server {
+              listen 80;
+              listen [::]:80;
+              server_name \$DOMAIN;
+              return 301 https://\$host\$request_uri;
+          }
 
-    ssl_certificate /etc/letsencrypt/live/\$DOMAIN/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/\$DOMAIN/privkey.pem;
-    include /etc/letsencrypt/options-ssl-nginx.conf;
-    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+          server {
+              listen 443 ssl http2;
+              listen [::]:443 ssl http2;
+              server_name \$DOMAIN;
 
-    location / {
-        proxy_pass http://localhost:\$PORT;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-    }
-}
-EOF
+              ssl_certificate /etc/letsencrypt/live/\$DOMAIN/fullchain.pem;
+              ssl_certificate_key /etc/letsencrypt/live/\$DOMAIN/privkey.pem;
+              include /etc/letsencrypt/options-ssl-nginx.conf;
+              ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
-sudo ln -sf $NGINX_FILE /etc/nginx/sites-enabled/
-# Use config test before reload to check for syntax errors
-sudo nginx -t && sudo systemctl reload nginx
-EOF_SSH_SCRIPT
+              location / {
+                  proxy_pass http://localhost:\$PORT;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+              }
+          }
+          EOF
+
+          sudo ln -sf $NGINX_FILE /etc/nginx/sites-enabled/
+          # Use config test before reload to check for syntax errors
+          sudo nginx -t && sudo systemctl reload nginx
+          EOF_SSH_SCRIPT
               
   deploy:
     name: 🚀 Deploy to AWS (prod_v2)

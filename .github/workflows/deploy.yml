@@ -137,7 +137,7 @@ jobs:
           PORT=$(seq 8090 8500 | grep -v -f <(sudo lsof -i -P -n | awk '{print $9}') | head -n1)
           echo "Using port: $PORT for branch: $BRANCH"
 
-          # Temporary HTTP-only Nginx config for certbot
+          # Temporary HTTP-only Nginx config
           NGINX_TEMP_CONFIG="server {
               listen 80;
               listen [::]:80;
@@ -145,7 +145,7 @@ jobs:
               location / { return 200 'OK'; }
           }"
 
-          # Final HTTPS + proxy config
+          # HTTPS + proxy config
           NGINX_FINAL_CONFIG="server {
               listen 80;
               listen [::]:80;
@@ -172,26 +172,30 @@ jobs:
               }
           }"
 
+          # 1️⃣ Create temp config if missing
           if [ ! -f "$NGINX_FILE" ]; then
               echo "Creating temporary HTTP-only config for $DOMAIN..."
               echo "$NGINX_TEMP_CONFIG" | sudo tee "$NGINX_FILE" > /dev/null
               sudo ln -sf "$NGINX_FILE" /etc/nginx/sites-enabled/
               sudo systemctl reload nginx || true
+          fi
 
-              echo "Requesting SSL certificate for $DOMAIN..."
+          # 2️⃣ Request SSL certificate if missing
+          if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+              echo "SSL certificate not found. Requesting cert for $DOMAIN..."
               sudo certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m ddiamanterbitwilio@gmail.com || true
           fi
 
-          # 2️⃣ Only overwrite Nginx with HTTPS proxy if cert exists
+          # 3️⃣ Overwrite Nginx config with HTTPS proxy if cert now exists
           if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
               echo "Writing final HTTPS proxy config..."
               echo "$NGINX_FINAL_CONFIG" | sudo tee "$NGINX_FILE" > /dev/null
               sudo ln -sf "$NGINX_FILE" /etc/nginx/sites-enabled/
           else
-              echo "SSL cert for $DOMAIN not found yet. Keeping temporary HTTP-only config."
+              echo "SSL cert for $DOMAIN still missing. Keeping temporary HTTP-only config."
           fi
 
-          # 3️⃣ Test and reload Nginx
+          # 4️⃣ Test and reload Nginx
           sudo nginx -t && sudo systemctl reload nginx
           ENDSSH
              

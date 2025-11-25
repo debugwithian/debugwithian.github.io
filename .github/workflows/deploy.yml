@@ -5,11 +5,9 @@ on:
     branches:
       - prod_v2
     types: [opened, synchronize, reopened]
-
   push:
     branches:
       - prod_v2
-
   workflow_dispatch:
 
 jobs:
@@ -125,60 +123,59 @@ jobs:
 
       - name: Deploy Dynamic Branch Environment
         run: |
-          ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "bash -c '
+          ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 '
             set -e
-            BRANCH=\"${GITHUB_HEAD_REF}\"
-            DOMAIN=\"\$BRANCH.debugwithian.com\"
-            PORT=\$(comm -23 <(seq 8090 8500 | sort) <(sudo lsof -i -P -n | grep LISTEN | awk '\''{print \$9}'\'' | sed '\''s/.*://'\'' | sort -u) | head -n 1)
-            echo \"Using port: \$PORT for branch: \$BRANCH\"
-            NGINX_FILE=\"/etc/nginx/sites-available/\$BRANCH.conf\"
+            BRANCH="${GITHUB_HEAD_REF}"
+            DOMAIN="$BRANCH.debugwithian.com"
+            PORT=$(comm -23 <(seq 8090 8500 | sort) <(sudo lsof -i -P -n | grep LISTEN | awk '"'"'{print $9}'"'"' | sed '"'"'s/.*://'"'"' | sort -u) | head -n 1)
+            echo "Using port: $PORT for branch: $BRANCH"
+            NGINX_FILE="/etc/nginx/sites-available/$BRANCH.conf"
 
-            # Write Nginx config safely using printf
-            sudo printf '%s\n' \
-\"server {\" \
-\"    if (\$host = $DOMAIN) { return 301 https://\$host\$request_uri; }\" \
-\"    listen 80;\" \
-\"    listen [::]:80;\" \
-\"    server_name $DOMAIN;\" \
-\"    return 301 https://\$host\$request_uri;\" \
-\"}\" \
-\"server {\" \
-\"    listen 443 ssl http2;\" \
-\"    listen [::]:443 ssl http2;\" \
-\"    server_name $DOMAIN;\" \
-\"    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;\" \
-\"    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;\" \
-\"    include /etc/letsencrypt/options-ssl-nginx.conf;\" \
-\"    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;\" \
-\"    location / {\" \
-\"        proxy_pass http://localhost:\$PORT;\" \
-\"        proxy_set_header Host \$host;\" \
-\"        proxy_set_header X-Real-IP \$remote_addr;\" \
-\"        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;\" \
-\"        proxy_set_header X-Forwarded-Proto \$scheme;\" \
-\"    }\" \
-\"}\" \
-> \$NGINX_FILE
+            # Create Nginx config with printf
+            sudo printf "%s\n" \
+"server {" \
+"    if (\$host = $DOMAIN) { return 301 https://\$host\$request_uri; }" \
+"    listen 80;" \
+"    listen [::]:80;" \
+"    server_name $DOMAIN;" \
+"    return 301 https://\$host\$request_uri;" \
+"}" \
+"server {" \
+"    listen 443 ssl http2;" \
+"    listen [::]:443 ssl http2;" \
+"    server_name $DOMAIN;" \
+"    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;" \
+"    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;" \
+"    include /etc/letsencrypt/options-ssl-nginx.conf;" \
+"    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;" \
+"    location / {" \
+"        proxy_pass http://localhost:$PORT;" \
+"        proxy_set_header Host \$host;" \
+"        proxy_set_header X-Real-IP \$remote_addr;" \
+"        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;" \
+"        proxy_set_header X-Forwarded-Proto \$scheme;" \
+"    }" \
+"}" > $NGINX_FILE
 
-            sudo ln -sf \$NGINX_FILE /etc/nginx/sites-enabled/
+            sudo ln -sf $NGINX_FILE /etc/nginx/sites-enabled/
             sudo systemctl reload nginx
-            sudo certbot --nginx -d \$DOMAIN --non-interactive --agree-tos -m ddiamanterbitwilio@gmail.com || true
+            sudo certbot --nginx -d $DOMAIN --non-interactive --agree-tos -m ddiamanterbitwilio@gmail.com || true
 
             cd /home/ubuntu
-            if [ ! -d \$BRANCH ]; then
-                git clone -b \$BRANCH https://github.com/${GITHUB_REPOSITORY} \$BRANCH
+            if [ ! -d $BRANCH ]; then
+                git clone -b $BRANCH https://github.com/${GITHUB_REPOSITORY} $BRANCH
             else
-                cd \$BRANCH
-                git fetch origin \$BRANCH
-                git reset --hard origin/\$BRANCH
+                cd $BRANCH
+                git fetch origin $BRANCH
+                git reset --hard origin/$BRANCH
             fi
 
-            cd /home/ubuntu/\$BRANCH
+            cd /home/ubuntu/$BRANCH
             npm install
-            pm2 delete \$BRANCH || true
-            pm2 start npm --name \$BRANCH -- run start -- --port=\$PORT
+            pm2 delete $BRANCH || true
+            pm2 start npm --name $BRANCH -- run start -- --port=$PORT
             pm2 save
-          '"
+          '
 
   deploy:
     name: 🚀 Deploy to AWS (prod_v2)
@@ -198,7 +195,7 @@ jobs:
 
       - name: Deploy and restart app on AWS
         run: |
-          ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "bash -c '
+          ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 '
             set -e
             cd /home/ubuntu
             git fetch origin prod_v2
@@ -206,5 +203,5 @@ jobs:
             npm install
             pm2 restart all
             pm2 save
-            echo \"✅ Production deployment completed successfully\"
-          '"
+            echo "✅ Production deployment completed successfully"
+          '

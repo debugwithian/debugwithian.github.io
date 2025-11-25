@@ -166,13 +166,10 @@ jobs:
           }"
 
           # Request SSL certificate if missing
-          if [ ! -d "/etc/letsencrypt/live/$DOMAIN" ]; then
+          if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
               echo "SSL certificate not found. Requesting cert for $DOMAIN..."
-              sudo certbot certonly --nginx -d "$DOMAIN"
+              sudo certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m ddiamanterbitwilio@gmail.com || true
           else
-              echo "SSL certificate folder found: /etc/letsencrypt/live/$DOMAIN"
-          fi
-
 
           # Create temp config if missing
           if [ ! -f "$NGINX_FILE" ]; then

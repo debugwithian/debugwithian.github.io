@@ -250,7 +250,7 @@ jobs:
             sudo systemctl reload nginx
 
             echo "✅ Docker preview for $SAFE_BRANCH deployed at https://$DOMAIN (Docker port $PORT)"
-        ENDSSH
+          ENDSSH
       
   deploy:
     name: 🚀 Deploy to AWS (prod_v2)

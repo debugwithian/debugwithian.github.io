@@ -266,8 +266,9 @@ jobs:
           '
 
       - name: Delete Testing Environment
+        if: github.event.pull_request.merged == true
         run: |
-          BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF##refs/heads/}}"
+          BRANCH="${{ github.event.pull_request.head.ref }}"
           echo "Using branch: $BRANCH"
           ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "
             set -e

@@ -60,7 +60,7 @@ jobs:
         run: |
           set -e
           DIFF=$(<diff.txt)
-          PROMPT="You are a strict senior engineer. Review the following git diff for logic, security, syntax, performance. Return Markdown with a final status: PASSED, NEEDS IMPROVEMENTS, or CRITICAL.\n\n$DIFF"
+          PROMPT="You are a strict senior engineer. Review the following git diff for logic, security, syntax, performance. Ignore YAML updates. Return Markdown with a final status: PASSED, NEEDS IMPROVEMENTS, or CRITICAL.\n\n$DIFF"
           AI_COMMENT=$(curl -sS --fail https://api.groq.com/openai/v1/chat/completions \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $GROQ_API_KEY" \

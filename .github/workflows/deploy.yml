@@ -267,12 +267,18 @@ jobs:
 
       - name: Delete Testing Environment (Last Merged Branch)
         run: |
-          # Fetch latest prod_v2
-          git fetch origin prod_v2
+          # Ensure full history is fetched
+          git fetch --unshallow || true
+          git fetch origin prod_v2 --tags --prune
 
           # Get last merge commit on prod_v2
           LAST_MERGE_COMMIT=$(git log origin/prod_v2 --merges -1 --pretty=%H)
           echo "Last merge commit: $LAST_MERGE_COMMIT"
+
+          if [ -z "$LAST_MERGE_COMMIT" ]; then
+            echo "No merge commit found on prod_v2. Skipping cleanup."
+            exit 0
+          fi
 
           # Get the branch that was merged
           LAST_MERGED_BRANCH=$(git log -1 --pretty=%P $LAST_MERGE_COMMIT \

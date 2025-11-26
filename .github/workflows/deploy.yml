@@ -121,11 +121,51 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H 3.232.21.89 >> ~/.ssh/known_hosts
 
+      - name: Generate NGINX Configuration (Base64)
+        id: generate_config
+        run: |
+          # Use placeholder __DOMAIN__ for substitution on the remote server using the sanitized branch name.
+          NGINX_CONF="server {
+              listen 80;
+              server_name __DOMAIN__;
+              return 301 https://\$host\$request_uri;
+          }
+          server {
+              listen 443 ssl http2;
+              server_name __DOMAIN__;
+              ssl_certificate /etc/letsencrypt/live/__DOMAIN__/fullchain.pem;
+              ssl_certificate_key /etc/letsencrypt/live/__DOMAIN__/privkey.pem;
+              ssl_session_cache shared:SSL:10m;
+              ssl_session_timeout 10m;
+              location / {
+                  proxy_pass http://127.0.0.1:__PORT__;
+                  proxy_set_header Host \$host|'_';
+                  proxy_set_header X-Real-IP \$remote_addr|'_';
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+              }
+          }"
+          
+          BASE64_CONF=$(echo "$NGINX_CONF" | base64 -w 0)
+          echo "NGINX_BASE64=$BASE64_CONF" >> "$GITHUB_OUTPUT"
+          
+          # Temporary HTTP config also uses __DOMAIN__
+          TEMP_CONF="server {
+              listen 80;
+              server_name __DOMAIN__;
+              root /var/www/letsencrypt;
+          }"
+          TEMP_BASE64=$(echo "$TEMP_CONF" | base64 -w 0)
+          echo "TEMP_BASE64=$TEMP_BASE64" >> "$GITHUB_OUTPUT"
+
+
       - name: Deploy branch via Docker
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+          NGINX_BASE64: ${{ steps.generate_config.outputs.NGINX_BASE64 }}
+          TEMP_BASE64: ${{ steps.generate_config.outputs.TEMP_BASE64 }}
         run: |
-          ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "BRANCH=${GITHUB_HEAD_REF:-${GITHUB_REF##refs/heads/}} PAT_TOKEN=${PAT_TOKEN} bash -s" <<'ENDSSH'
+          ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "BRANCH=${GITHUB_HEAD_REF:-${GITHUB_REF##refs/heads/}} PAT_TOKEN=${PAT_TOKEN} NGINX_BASE64='${NGINX_BASE64}' TEMP_BASE64='${TEMP_BASE64}' bash -s" <<'ENDSSH'
             set -euo pipefail
 
             if [ -z "$PAT_TOKEN" ]; then
@@ -133,11 +173,14 @@ jobs:
               exit 1
             fi
 
+            # --- SANITIZATION AND VAR DEFINITION ---
             SAFE_BRANCH=$(echo "$BRANCH" | sed 's/[^a-zA-Z0-9.-]/-/g')
             DOMAIN="$SAFE_BRANCH.debugwithian.com"
             TMPDIR="/tmp/$SAFE_BRANCH"
             PORT=""
+            # ---------------------------------------
 
+            # Find a free port
             for p in {8090..8500}; do
               if ! sudo lsof -iTCP:$p -sTCP:LISTEN >/dev/null; then
                 PORT=$p
@@ -173,13 +216,8 @@ jobs:
             WWW_LETSENCRYPT="/var/www/letsencrypt"
             sudo mkdir -p "$WWW_LETSENCRYPT" && sudo chmod 755 "$WWW_LETSENCRYPT"
 
-            # Temporary HTTP config
-            printf '%s\n' \
-            'server {' \
-            '    listen 80;' \
-            "    server_name $DOMAIN;" \
-            "    root $WWW_LETSENCRYPT;" \
-            '}' | sed 's/[ \t]*$//g' | sudo tee "$TEMP_NGINX" >/dev/null
+            # Temporary HTTP config: DECODE, SUBSTITUTE DOMAIN, and WRITE
+            echo "$TEMP_BASE64" | base64 -d | sed "s|__DOMAIN__|$DOMAIN|g" | sudo tee "$TEMP_NGINX" >/dev/null
 
             sudo ln -sf "$TEMP_NGINX" /etc/nginx/sites-enabled/
             sudo nginx -t
@@ -193,22 +231,22 @@ jobs:
                 sudo systemctl start nginx
               fi
             fi
-
-            # Final HTTPS config (with octal and fallback fixes)
-            printf -e "server {\n\040\040\040\040listen 80;\n\040\040\040\040server_name $DOMAIN;\n\040\040\040\040return 301 https://\$host\$request_uri;\n}\n\nserver {\n\040\040\040\040listen 443 ssl http2;\n\040\040\040\040server_name $DOMAIN;\n\040\040\040\040ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;\n\040\040\040\040ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;\n\040\040\040\040ssl_session_cache shared:SSL:10m;\n\040\040\040\040ssl_session_timeout 10m;\n\040\040\040\040location / {\n\040\040\040\040\040\040\040\040proxy_pass http://127.0.0.1:$PORT;\n\040\040\040\040\040\040\040\040proxy_set_header\040Host\040\$host|'_';\n\040\040\040\040\040\040\040\040proxy_set_header\040X-Real-IP\040\$remote_addr|'_';\n\040\040\040\040\040\040\040\040proxy_set_header\040X-Forwarded-For\040\$proxy_add_x_forwarded_for;\n\040\040\040\040\040\040\040\040proxy_set_header\040X-Forwarded-Proto\040\$scheme;\n\040\040\040\040}\n}" | sudo tee "$NGINX_FILE" >/dev/null
+            
+            # Final HTTPS config: DECODE, SUBSTITUTE PORT, SUBSTITUTE DOMAIN, and WRITE
+            echo "$NGINX_BASE64" | base64 -d | sed "s|__PORT__|$PORT|g" | sed "s|__DOMAIN__|$DOMAIN|g" | sudo tee "$NGINX_FILE" >/dev/null
 
             sudo ln -sf "$NGINX_FILE" /etc/nginx/sites-enabled/
             
             # --- BEGIN DEBUGGING ---
             echo "--- BEGIN NGINX CONFIG $NGINX_FILE ---"
-            # Show the content normally
             sudo cat "$NGINX_FILE"
             echo "--- END NGINX CONFIG ---"
 
-            # Show the content in hex dump (critical for finding hidden characters)
             echo "--- BEGIN HEX DUMP (LINE 15-25) ---"
+            # Attempting to install xxd only if necessary, ignoring errors
             sudo apt update > /dev/null 2>&1; sudo apt install -y xxd > /dev/null 2>&1 || true
-            sudo cat "$NGINX_FILE" | head -n 25 | tail -n 11 | xxd -c 1
+            # Using tr to strip carriage returns (CR) before hexdump for cleaner output
+            sudo cat "$NGINX_FILE" | tr -d '\r' | head -n 25 | tail -n 11 | xxd -c 1
             echo "--- END HEX DUMP ---"
             # --- END DEBUGGING ---
 
@@ -217,6 +255,7 @@ jobs:
 
             echo "✅ Docker preview for $SAFE_BRANCH deployed at https://$DOMAIN (Docker port $PORT)"
           ENDSSH
+
   deploy:
     name: 🚀 Deploy to AWS (prod_v2)
     runs-on: ubuntu-latest

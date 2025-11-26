@@ -132,11 +132,11 @@ jobs:
             SAFE_BRANCH=$(echo "$BRANCH" | sed 's/[^a-zA-Z0-9.-]/-/g')
             DOMAIN="$SAFE_BRANCH.debugwithian.com"
 
-            # --- Docker image (replace with your real image) ---
+            # --- Docker image ---
             IMAGE="debugwithian/preview:latest"
 
-            # --- Find a free port (numeric sort for comm) ---
-            USED_PORTS=$(sudo lsof -i -P -n | awk '/LISTEN/ {print $9}' | sed 's/.*://' | grep -E '^[0-9]+$' | sort -n || true)
+            # --- Find a free port (numeric sort) ---
+            USED_PORTS=$(sudo lsof -i -P -n | awk '/LISTEN/ {print $9}' | sed 's/.*://' | sort -n || true)
             PORT=$(comm -23 <(seq 8090 8500 | sort -n) <(echo "$USED_PORTS")) 
             PORT=$(echo "$PORT" | head -n1)
             if [ -z "$PORT" ]; then
@@ -145,16 +145,16 @@ jobs:
             fi
             echo "Using port: $PORT for branch: $SAFE_BRANCH"
 
-            # --- Clone branch (if Docker build requires source) ---
+            # --- Clone branch (if needed for Docker build) ---
             TMPDIR="/tmp/$SAFE_BRANCH"
             rm -rf "$TMPDIR"
             if [ -z "${PAT_TOKEN:-}" ]; then
-              echo "❌ PAT_TOKEN is not set on the remote. Aborting."
+              echo "❌ PAT_TOKEN not set. Aborting."
               exit 1
             fi
             git clone --depth 1 --branch "$BRANCH" "https://${PAT_TOKEN}@github.com/debugwithian/debugwithian.github.io.git" "$TMPDIR"
 
-            # --- Build Docker image locally ---
+            # --- Build Docker image ---
             docker build -t "$IMAGE" "$TMPDIR" || true
 
             # --- Stop old container ---
@@ -162,19 +162,19 @@ jobs:
 
             # --- Run new container ---
             sudo docker run -d \
-                --name "container-$SAFE_BRANCH" \
-                -p "$PORT":3000 \
-                "$IMAGE"
+              --name "container-$SAFE_BRANCH" \
+              -p "$PORT":3000 \
+              "$IMAGE"
 
             # --- Nginx paths ---
             NGINX_FILE="/etc/nginx/sites-available/$SAFE_BRANCH.conf"
             TEMP_NGINX="/etc/nginx/sites-available/$SAFE_BRANCH-temp.conf"
             WWW_LETSENCRYPT="/var/www/letsencrypt"
 
-            # --- Create temp HTTP-only config for certbot ---
             sudo mkdir -p "$WWW_LETSENCRYPT"
             sudo chmod 755 "$WWW_LETSENCRYPT"
 
+            # --- Temporary HTTP-only config for certbot ---
             echo "server {
               listen 80;
               server_name $DOMAIN;
@@ -185,7 +185,7 @@ jobs:
             sudo nginx -t
             sudo systemctl restart nginx
 
-            # --- Obtain SSL certificate (standalone) ---
+            # --- Obtain SSL certificate ---
             if [ ! -d "/etc/letsencrypt/live/$DOMAIN" ]; then
               echo "Requesting certificate for $DOMAIN..."
               sudo systemctl stop nginx
@@ -226,6 +226,7 @@ jobs:
 
             echo "✅ Docker preview for $SAFE_BRANCH deployed at https://$DOMAIN (Docker port $PORT)"
           ENDSSH
+        shell: /usr/bin/bash -e {0}
 
   deploy:
     name: 🚀 Deploy to AWS (prod_v2)

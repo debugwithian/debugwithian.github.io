@@ -138,7 +138,13 @@ jobs:
             PORT=$(seq 8090 8500 | grep -v -f <(sudo lsof -i -P -n | awk '{print $9}') | head -n1)
             echo "Using port: $PORT for branch: $BRANCH"
 
-            # 2️⃣ Clone or pull the branch from GitHub
+            # 2️⃣ Ensure webroot exists and is owned by ubuntu (fully deletable)
+            sudo mkdir -p "$WEBROOT"
+            sudo chown -R ubuntu:ubuntu "$WEBROOT"
+            sudo chmod 755 "$WEBROOT"
+            echo "ok" | tee "$WEBROOT/index.html" > /dev/null
+
+            # 3️⃣ Clone or pull the branch from GitHub
             if [ ! -d "$APP_DIR/.git" ]; then
                 echo "Cloning branch $BRANCH into $APP_DIR..."
                 git clone --branch "$BRANCH" git@github.com:$PAT_TOKEN/${{ github.repository }}.git "$APP_DIR"
@@ -149,27 +155,20 @@ jobs:
                 git reset --hard "origin/$BRANCH"
             fi
 
-            # 3️⃣ Install dependencies (example: Node.js)
+            # 4️⃣ Install dependencies (example: Node.js)
             cd "$APP_DIR"
             if [ -f "package.json" ]; then
                 echo "Installing Node.js dependencies..."
                 npm install
             fi
 
-            # 4️⃣ Start the app in background on the free port (example: Node.js)
-            # Kill any previous process on this port
+            # 5️⃣ Start the app in background on the free port (example: Node.js)
             if lsof -i:$PORT | grep LISTEN; then
                 echo "Killing previous process on port $PORT..."
                 sudo fuser -k $PORT/tcp
             fi
             echo "Starting app on port $PORT..."
             nohup npm start -- --port $PORT > "$APP_DIR/nohup.log" 2>&1 &
-
-            # 5️⃣ Create webroot for Certbot (fully deletable)
-            sudo mkdir -p "$WEBROOT"
-            sudo chmod 755 "$WEBROOT"       # Ensure readable/executable by all
-            sudo chown -R root:root "$WEBROOT"
-            echo "ok" | sudo tee "$WEBROOT/index.html" > /dev/null
 
             # 6️⃣ Temporary HTTP-only Nginx config
             NGINX_TEMP_CONFIG="server {

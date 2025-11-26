@@ -283,7 +283,8 @@ jobs:
           # Get the branch that was merged
           LAST_MERGED_BRANCH=$(git log -1 --pretty=%P $LAST_MERGE_COMMIT \
             | xargs -n1 git name-rev --name-only \
-            | grep -v "prod_v2")
+            | grep -v "prod_v2"
+            | sed "s#^remotes/origin/##")
           echo "Last merged branch: $LAST_MERGED_BRANCH"
 
           if [ -z "$LAST_MERGED_BRANCH" ]; then

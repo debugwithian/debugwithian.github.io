@@ -136,7 +136,7 @@ jobs:
             IMAGE="debugwithian/preview:latest"
 
             # --- Find a free port (numeric sort for comm) ---
-            USED_PORTS=$(sudo lsof -i -P -n | awk '/LISTEN/ {print $9}' | sed 's/.*://' | sort -n || true)
+            USED_PORTS=$(sudo lsof -i -P -n | awk '/LISTEN/ {print $9}' | sed 's/.*://' | grep -E '^[0-9]+$' | sort -n || true)
             PORT=$(comm -23 <(seq 8090 8500 | sort -n) <(echo "$USED_PORTS")) 
             PORT=$(echo "$PORT" | head -n1)
             if [ -z "$PORT" ]; then
@@ -148,6 +148,10 @@ jobs:
             # --- Clone branch (if Docker build requires source) ---
             TMPDIR="/tmp/$SAFE_BRANCH"
             rm -rf "$TMPDIR"
+            if [ -z "${PAT_TOKEN:-}" ]; then
+              echo "❌ PAT_TOKEN is not set on the remote. Aborting."
+              exit 1
+            fi
             git clone --depth 1 --branch "$BRANCH" "https://${PAT_TOKEN}@github.com/debugwithian/debugwithian.github.io.git" "$TMPDIR"
 
             # --- Build Docker image locally ---

@@ -265,17 +265,30 @@ jobs:
             echo "✅ Production deployment completed successfully"
           '
 
-      - name: Delete Testing Environment (Merged Branch)
+      - name: Delete Testing Environment (Last Merged Branch)
         run: |
-          echo "Fetching last merged branch..."
-          MERGED_BRANCH=$(curl -sS -H "Authorization: token ${{ secrets.PAT_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}" \
-            | jq -r '.head.ref')
-          echo "Merged branch: $MERGED_BRANCH"
+          # Fetch latest prod_v2
+          git fetch origin prod_v2
 
+          # Get last merge commit on prod_v2
+          LAST_MERGE_COMMIT=$(git log origin/prod_v2 --merges -1 --pretty=%H)
+          echo "Last merge commit: $LAST_MERGE_COMMIT"
+
+          # Get the branch that was merged
+          LAST_MERGED_BRANCH=$(git log -1 --pretty=%P $LAST_MERGE_COMMIT \
+            | xargs -n1 git name-rev --name-only \
+            | grep -v "prod_v2")
+          echo "Last merged branch: $LAST_MERGED_BRANCH"
+
+          if [ -z "$LAST_MERGED_BRANCH" ]; then
+            echo "No merged branch found. Skipping cleanup."
+            exit 0
+          fi
+
+          # SSH cleanup
           ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "
             set -e
-            BRANCH='$MERGED_BRANCH'
+            BRANCH='$LAST_MERGED_BRANCH'
             SAFE_BRANCH=\$(echo \"\$BRANCH\" | sed 's/[^a-zA-Z0-9]/-/g')
             DOMAIN=\"\$SAFE_BRANCH.debugwithian.com\"
             WEBROOT=\"/var/www/\$DOMAIN\"

@@ -179,7 +179,7 @@ jobs:
             '    listen 80;' \
             "    server_name $DOMAIN;" \
             "    root $WWW_LETSENCRYPT;" \
-            '}' | sudo tee "$TEMP_NGINX" >/dev/null
+            '}' | sed 's/[ \t]*$//g' | sudo tee "$TEMP_NGINX" >/dev/null
 
             sudo ln -sf "$TEMP_NGINX" /etc/nginx/sites-enabled/
             sudo nginx -t
@@ -195,7 +195,6 @@ jobs:
             fi
 
             # Final HTTPS config
-            # NOTE: We use \x20 for single space to guarantee no trailing whitespace after the semicolon.
             printf '%s\n' \
             'server {' \
             '    listen 80;' \
@@ -217,7 +216,7 @@ jobs:
             '        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;' \
             '        proxy_set_header X-Forwarded-Proto $scheme;' \
             '    }' \
-            '}' | sudo tee "$NGINX_FILE" >/dev/null
+            '}' | sed 's/[ \t]*$//g' | sudo tee "$NGINX_FILE" >/dev/null
 
             sudo ln -sf "$NGINX_FILE" /etc/nginx/sites-enabled/
             sudo nginx -t

@@ -165,10 +165,11 @@ jobs:
             echo "Starting app on port $PORT..."
             nohup npm start -- --port $PORT > "$APP_DIR/nohup.log" 2>&1 &
 
-            # 5️⃣ Create webroot for Certbot
+            # 5️⃣ Create webroot for Certbot (fully deletable)
             sudo mkdir -p "$WEBROOT"
-            sudo chown -R ubuntu:ubuntu "$WEBROOT"
-            echo "ok" | tee "$WEBROOT/index.html" > /dev/null
+            sudo chmod 755 "$WEBROOT"       # Ensure readable/executable by all
+            sudo chown -R root:root "$WEBROOT"
+            echo "ok" | sudo tee "$WEBROOT/index.html" > /dev/null
 
             # 6️⃣ Temporary HTTP-only Nginx config
             NGINX_TEMP_CONFIG="server {

@@ -173,7 +173,7 @@ jobs:
             WWW_LETSENCRYPT="/var/www/letsencrypt"
             sudo mkdir -p "$WWW_LETSENCRYPT" && sudo chmod 755 "$WWW_LETSENCRYPT"
 
-            # Temporary HTTP config (No change, as this block passed)
+            # Temporary HTTP config
             printf '%s\n' \
             'server {' \
             '    listen 80;' \
@@ -194,15 +194,22 @@ jobs:
               fi
             fi
 
-            # Final HTTPS config (with the octal and fallback fixes)
+            # Final HTTPS config (with octal and fallback fixes)
             printf -e "server {\n\040\040\040\040listen 80;\n\040\040\040\040server_name $DOMAIN;\n\040\040\040\040return 301 https://\$host\$request_uri;\n}\n\nserver {\n\040\040\040\040listen 443 ssl http2;\n\040\040\040\040server_name $DOMAIN;\n\040\040\040\040ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;\n\040\040\040\040ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;\n\040\040\040\040ssl_session_cache shared:SSL:10m;\n\040\040\040\040ssl_session_timeout 10m;\n\040\040\040\040location / {\n\040\040\040\040\040\040\040\040proxy_pass http://127.0.0.1:$PORT;\n\040\040\040\040\040\040\040\040proxy_set_header\040Host\040\$host|'_';\n\040\040\040\040\040\040\040\040proxy_set_header\040X-Real-IP\040\$remote_addr|'_';\n\040\040\040\040\040\040\040\040proxy_set_header\040X-Forwarded-For\040\$proxy_add_x_forwarded_for;\n\040\040\040\040\040\040\040\040proxy_set_header\040X-Forwarded-Proto\040\$scheme;\n\040\040\040\040}\n}" | sudo tee "$NGINX_FILE" >/dev/null
 
             sudo ln -sf "$NGINX_FILE" /etc/nginx/sites-enabled/
             
             # --- BEGIN DEBUGGING ---
             echo "--- BEGIN NGINX CONFIG $NGINX_FILE ---"
+            # Show the content normally
             sudo cat "$NGINX_FILE"
             echo "--- END NGINX CONFIG ---"
+
+            # Show the content in hex dump (critical for finding hidden characters)
+            echo "--- BEGIN HEX DUMP (LINE 15-25) ---"
+            sudo apt update > /dev/null 2>&1; sudo apt install -y xxd > /dev/null 2>&1 || true
+            sudo cat "$NGINX_FILE" | head -n 25 | tail -n 11 | xxd -c 1
+            echo "--- END HEX DUMP ---"
             # --- END DEBUGGING ---
 
             sudo nginx -t
@@ -210,7 +217,6 @@ jobs:
 
             echo "✅ Docker preview for $SAFE_BRANCH deployed at https://$DOMAIN (Docker port $PORT)"
           ENDSSH
-
   deploy:
     name: 🚀 Deploy to AWS (prod_v2)
     runs-on: ubuntu-latest

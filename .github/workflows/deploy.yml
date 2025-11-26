@@ -105,7 +105,7 @@ jobs:
           exit 1
 
   deploy_dynamic_env:
-    name: 🌐 Create Dynamic Branch Environment
+    name: 🌐 Deploy Preview Environment (Docker)
     runs-on: ubuntu-latest
     needs: ai_code_review
     if: github.event_name == 'pull_request' && needs.ai_code_review.outputs.review_status != 'CRITICAL_ISSUE'
@@ -121,7 +121,7 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H 3.232.21.89 >> ~/.ssh/known_hosts
 
-      - name: Deploy Dynamic Branch Environment
+      - name: Deploy branch via Docker
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
@@ -130,102 +130,32 @@ jobs:
 
             SAFE_BRANCH=$(echo "$BRANCH" | sed 's/[^a-zA-Z0-9]/-/g')
             DOMAIN="$SAFE_BRANCH.debugwithian.com"
-            APP_DIR="/var/www/$DOMAIN/app"
-            WEBROOT="/var/www/$DOMAIN"
-            NGINX_FILE="/etc/nginx/sites-available/$BRANCH.conf"
-
-            # 1️⃣ Find a free port for this branch
+            IMAGE_NAME="preview-$SAFE_BRANCH"
             PORT=$(seq 8090 8500 | grep -v -f <(sudo lsof -i -P -n | awk '{print $9}') | head -n1)
-            echo "Using port: $PORT for branch: $BRANCH"
 
-            # 2️⃣ Clone or pull the branch from GitHub
-            if [ ! -d "$APP_DIR/.git" ]; then
-                echo "Cloning branch $BRANCH into $APP_DIR..."
-                git clone --branch "$BRANCH" git@github.com:$PAT_TOKEN/${{ github.repository }}.git "$APP_DIR"
-            else
-                echo "Pulling latest changes for branch $BRANCH..."
-                cd "$APP_DIR"
-                git fetch origin "$BRANCH"
-                git reset --hard "origin/$BRANCH"
+            # Clone branch
+            rm -rf /tmp/$BRANCH
+            git clone --branch "$BRANCH" git@github.com:$PAT_TOKEN/debugwithian/debugwithian.github.io.git "/tmp/$BRANCH"
+
+            cd "/tmp/$BRANCH"
+
+            # Build Docker image
+            docker build -t "$IMAGE_NAME" .
+
+            # Stop old container
+            if docker ps -a --format '{{.Names}}' | grep "^$IMAGE_NAME$"; then
+              docker rm -f "$IMAGE_NAME"
             fi
 
-            # 3️⃣ Install dependencies (example: Node.js)
-            cd "$APP_DIR"
-            if [ -f "package.json" ]; then
-                echo "Installing Node.js dependencies..."
-                npm install
-            fi
+            # Run new container
+            docker run -d --name "$IMAGE_NAME" -p $PORT:3000 "$IMAGE_NAME"
 
-            # 4️⃣ Start the app on the free port using PM2
-            # Kill any previous PM2 process for this branch
-            if pm2 list | grep "$BRANCH"; then
-                echo "Stopping previous PM2 process for $BRANCH..."
-                pm2 delete "$BRANCH" || true
-            fi
-
-            # Start the app with PM2 on the free port
-            echo "Starting app with PM2 on port $PORT..."
-            cd "$APP_DIR"
-            pm2 start npm --name "$BRANCH" -- start -- --port $PORT
-            pm2 save
-
-            # 5️⃣ Create webroot for Certbot
-            sudo mkdir -p "$WEBROOT"
-            sudo chown -R ubuntu:ubuntu "$WEBROOT"
-            echo "ok" | tee "$WEBROOT/index.html" > /dev/null
-
-            # 6️⃣ Temporary HTTP-only Nginx config
-            NGINX_TEMP_CONFIG="server {
+            # Configure Nginx
+            NGINX_FILE="/etc/nginx/sites-available/$SAFE_BRANCH.conf"
+            NGINX_CONFIG="server {
                 listen 80;
                 listen [::]:80;
                 server_name $DOMAIN;
-
-                root $APP_DIR;           # For Certbot HTTP validation
-                index index.html;
-
-                # Proxy everything to the app running on localhost:$PORT
-                location / {
-                    proxy_pass http://localhost:$PORT;
-                    proxy_set_header Host \$host;
-                    proxy_set_header X-Real-IP \$remote_addr;
-                    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto \$scheme;
-                }
-            }"
-
-
-            if [ ! -f "$NGINX_FILE" ]; then
-                echo "Creating temporary HTTP-only config for $DOMAIN..."
-                echo "$NGINX_TEMP_CONFIG" | sudo tee "$NGINX_FILE" > /dev/null
-                sudo ln -sf "$NGINX_FILE" /etc/nginx/sites-enabled/
-            fi
-
-            # Test and reload Nginx
-            sudo nginx -t
-            sudo systemctl reload nginx
-
-            # 7️⃣ Request SSL certificate using webroot
-            if [ ! -d "/etc/letsencrypt/live/$DOMAIN" ]; then
-                echo "SSL certificate not found. Requesting cert for $DOMAIN..."
-                sudo certbot certonly --webroot -w "$WEBROOT" -d "$DOMAIN" --non-interactive --agree-tos -m ddiamanterbitwilio@gmail.com || true
-            fi
-
-            # 8️⃣ Final HTTPS + proxy config
-            NGINX_FINAL_CONFIG="server {
-                listen 80;
-                listen [::]:80;
-                server_name $DOMAIN;
-                return 301 https://\$host\$request_uri;
-            }
-            server {
-                listen 443 ssl http2;
-                listen [::]:443 ssl http2;
-                server_name $DOMAIN;
-
-                ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
-                ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
-                include /etc/letsencrypt/options-ssl-nginx.conf;
-                ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
                 location / {
                     proxy_pass http://localhost:$PORT;
@@ -236,21 +166,18 @@ jobs:
                 }
             }"
 
-            if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
-                echo "Writing final HTTPS proxy config for $DOMAIN..."
-                echo "$NGINX_FINAL_CONFIG" | sudo tee "$NGINX_FILE" > /dev/null
-                sudo ln -sf "$NGINX_FILE" /etc/nginx/sites-enabled/
-            else
-                echo "SSL cert for $DOMAIN still missing. Keeping temporary HTTP-only config."
-            fi
-
-            # 9️⃣ Test and reload Nginx safely
+            echo "$NGINX_CONFIG" | sudo tee "$NGINX_FILE" > /dev/null
+            sudo ln -sf "$NGINX_FILE" /etc/nginx/sites-enabled/
             sudo nginx -t && sudo systemctl reload nginx
 
-            echo "✅ Branch $BRANCH deployed at https://$DOMAIN on port $PORT"
+            # Certbot SSL
+            if [ ! -d "/etc/letsencrypt/live/$DOMAIN" ]; then
+              sudo certbot certonly --webroot -w /tmp --non-interactive --agree-tos -m ddiamanterbitwilio@gmail.com -d "$DOMAIN" || true
+            fi
+
+            echo "✅ Docker preview for $BRANCH deployed at https://$DOMAIN on port $PORT"
           ENDSSH
 
-     
   deploy:
     name: 🚀 Deploy to AWS (prod_v2)
     runs-on: ubuntu-latest

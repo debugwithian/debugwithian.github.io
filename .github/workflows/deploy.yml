@@ -1,4 +1,4 @@
-name: 🚀 Auto Deploy to AWS with AI Code Review (Groq)
+name: Full Automation Pipeline (AI Code Review, Testing Environment Created, Auto Deployment)
 
 on:
   pull_request:
@@ -52,7 +52,7 @@ jobs:
             echo "diff_exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Run AI Code Review (Groq)
+      - name: Run AI Code Review
         id: run_ai
         if: steps.generate_diff.outputs.diff_exists == 'true'
         env:
@@ -105,7 +105,7 @@ jobs:
           exit 1
 
   deploy_dynamic_env:
-    name: 🌐 Create Dynamic Branch Environment
+    name: 🌐 Create Testing Environment
     runs-on: ubuntu-latest
     needs: ai_code_review
     if: github.event_name == 'pull_request' && needs.ai_code_review.outputs.review_status != 'CRITICAL_ISSUE'
@@ -121,14 +121,15 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H 3.232.21.89 >> ~/.ssh/known_hosts
 
-      - name: Deploy Dynamic Branch Environment
+      - name: Deploy Testing Environment
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "BRANCH=${GITHUB_HEAD_REF:-${GITHUB_REF##refs/heads/}} bash -s" <<'ENDSSH'
             set -e
 
-            DOMAIN="$BRANCH.debugwithian.com"
+            SAFE_BRANCH=$(echo "$BRANCH" | sed 's/[^a-zA-Z0-9]/-/g')
+            DOMAIN="$SAFE_BRANCH.debugwithian.com"
             APP_DIR="/var/www/$DOMAIN/app"
             WEBROOT="/var/www/$DOMAIN"
             NGINX_FILE="/etc/nginx/sites-available/$BRANCH.conf"
@@ -263,3 +264,48 @@ jobs:
             pm2 save
             echo "✅ Production deployment completed successfully"
           '
+
+      - name: Delete Testing Environment
+        run: |
+          ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "
+            set -e
+
+            BRANCH='${{ github.head_ref }}'
+            SAFE_BRANCH=\$(echo \"\$BRANCH\" | sed 's/[^a-zA-Z0-9]/-/g')
+            DOMAIN=\"\$SAFE_BRANCH.debugwithian.com\"
+            WEBROOT=\"/var/www/\$DOMAIN\"
+            APP_DIR=\"/var/www/\$DOMAIN/app\"
+            NGINX_FILE=\"/etc/nginx/sites-available/\$BRANCH.conf\"
+
+            echo '🧹 Cleaning preview environment for branch: '\$BRANCH
+            echo 'Domain: '\$DOMAIN
+
+            # Kill Node processes serving this preview
+            if pgrep -f \"--port\" >/dev/null; then
+              echo 'Killing preview Node processes...'
+              pkill -f \"\$APP_DIR\" || true
+            fi
+
+            # Remove webroot + app
+            if [ -d \"\$WEBROOT\" ]; then
+              echo 'Deleting webroot directory...'
+              sudo rm -rf \"\$WEBROOT\"
+            fi
+
+            # Remove Nginx config
+            if [ -f \"\$NGINX_FILE\" ]; then
+              echo 'Removing nginx config...'
+              sudo rm -f \"\$NGINX_FILE\"
+              sudo rm -f \"/etc/nginx/sites-enabled/\$BRANCH.conf\"
+            fi
+
+            # Remove SSL certificate
+            if [ -d \"/etc/letsencrypt/live/\$DOMAIN\" ]; then
+              echo 'Deleting SSL certificate...'
+              sudo certbot delete --cert-name \"\$DOMAIN\" --non-interactive || true
+            fi
+
+            sudo nginx -t && sudo systemctl reload nginx
+
+            echo \"🎉 Successfully cleaned dynamic environment: https://\$DOMAIN\"
+          "

@@ -266,7 +266,6 @@ jobs:
           '
 
       - name: Delete Testing Environment (Merged Branch)
-        if: github.event.pull_request.merged == true
         run: |
           echo "Fetching last merged branch..."
           MERGED_BRANCH=$(curl -sS -H "Authorization: token ${{ secrets.PAT_TOKEN }}" \

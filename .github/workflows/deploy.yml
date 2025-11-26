@@ -60,7 +60,7 @@ jobs:
         run: |
           set -e
           DIFF=$(<diff.txt)
-          PROMPT="You are a strict senior engineer. Avoid checking YAML file. Review the following git diff for logic, security, syntax, performance. Return Markdown with a final status: PASSED, NEEDS IMPROVEMENTS, or CRITICAL.\n\n$DIFF"
+          PROMPT="You are a strict senior engineer. Avoid checking deploy.YAML file. Review the following git diff for logic, security, syntax, performance. Return Markdown with a final status: PASSED, NEEDS IMPROVEMENTS, or CRITICAL.\n\n$DIFF"
           AI_COMMENT=$(curl -sS --fail https://api.groq.com/openai/v1/chat/completions \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $GROQ_API_KEY" \
@@ -125,11 +125,8 @@ jobs:
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "BRANCH=${GITHUB_HEAD_REF:-${GITHUB_REF##refs/heads/}} bash -s" <<'ENDSSH'
+          ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "BRANCH=${GITHUB_HEAD_REF:-${GITHUB_REF##refs/heads/}} PAT_TOKEN=${PAT_TOKEN} bash -s" <<'ENDSSH'
           set -euo pipefail
-
-          # --- Inputs ---
-          PAT_TOKEN="${PAT_TOKEN:-}"
 
           if [ -z "$PAT_TOKEN" ]; then
             echo "❌ PAT_TOKEN not set. Aborting."

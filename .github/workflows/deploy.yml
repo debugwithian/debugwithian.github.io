@@ -154,7 +154,7 @@ jobs:
           fi
           echo "Using port: $PORT for branch: $SAFE_BRANCH"
 
-          # --- Clone repo if needed for Docker build ---
+          # --- Clone repo ---
           rm -rf "$TMPDIR"
           git ls-remote "https://$PAT_TOKEN@github.com/debugwithian/debugwithian.github.io.git" >/dev/null 2>&1 || {
             echo "❌ Invalid PAT_TOKEN or access denied"
@@ -162,10 +162,17 @@ jobs:
           }
           git clone --depth 1 --branch "$BRANCH" "https://$PAT_TOKEN@github.com/debugwithian/debugwithian.github.io.git" "$TMPDIR"
 
-          # --- Check if Dockerfile exists ---
+          # --- Ensure Dockerfile exists ---
           if [ ! -f "$TMPDIR/Dockerfile" ]; then
-            echo "❌ No Dockerfile found in $TMPDIR. Cannot build Docker image."
-            exit 1
+            echo "⚠️ No Dockerfile found, creating default minimal Dockerfile"
+            cat <<'EOF' > "$TMPDIR/Dockerfile"
+          FROM node:20-alpine
+          WORKDIR /app
+          COPY . .
+          RUN npm install --production || true
+          EXPOSE 3000
+          CMD ["node", "server.js"]
+          EOF
           fi
 
           # --- Build Docker image ---
@@ -200,10 +207,7 @@ jobs:
           sudo systemctl restart nginx
 
           # --- Check DNS resolves before requesting SSL ---
-          if ! host "$DOMAIN" >/dev/null 2>&1; then
-            echo "⚠️ DNS for $DOMAIN does not resolve. Skipping certbot."
-          else
-            # --- Obtain SSL certificate ---
+          if host "$DOMAIN" >/dev/null 2>&1; then
             if [ ! -d "/etc/letsencrypt/live/$DOMAIN" ]; then
               echo "Requesting certificate for $DOMAIN..."
               sudo systemctl stop nginx
@@ -212,6 +216,8 @@ jobs:
                 -d "$DOMAIN" || true
               sudo systemctl start nginx
             fi
+          else
+            echo "⚠️ DNS for $DOMAIN does not resolve. Skipping certbot."
           fi
 
           # --- Final HTTPS Nginx config ---

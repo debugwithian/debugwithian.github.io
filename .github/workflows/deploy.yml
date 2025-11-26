@@ -267,6 +267,8 @@ jobs:
 
       - name: Delete Testing Environment
         run: |
+          BRANCH="${{ github.head_ref }}"
+          echo "Using branch: $BRANCH"
           ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "
             set -e
 

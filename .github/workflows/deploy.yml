@@ -137,8 +137,8 @@ jobs:
 
             # --- Find a free port on the host (8090-8500) ---
             # Use ss to list listening tcp ports (robust)
-            mkdir -p /var/www/letsencrypt
-            chmod 755 /var/www/letsencrypt
+            sudo mkdir -p /var/www/letsencrypt
+            sudo chmod 755 /var/www/letsencrypt
 
             USED_PORTS=$(ss -ltn 2>/dev/null | awk 'NR>1 {print $4}' | awk -F':' '{print $NF}' | sort -u || true)
             PORT=$(comm -23 <(seq 8090 8500) <(echo "$USED_PORTS") | head -n1 || true)

@@ -133,7 +133,7 @@ jobs:
             exit 1
           fi
 
-          # --- Sanitize branch name for DNS/NGINX ---
+          # --- Sanitize branch name ---
           SAFE_BRANCH=$(echo "$BRANCH" | sed 's/[^a-zA-Z0-9.-]/-/g')
           DOMAIN="$SAFE_BRANCH.debugwithian.com"
           IMAGE="debugwithian/preview:latest"
@@ -147,7 +147,6 @@ jobs:
               break
             fi
           done
-
           if [ -z "$PORT" ]; then
             echo "❌ No free port found in range 8090-8500"
             exit 1
@@ -195,17 +194,18 @@ jobs:
           sudo chmod 755 "$WWW_LETSENCRYPT"
 
           # --- Temporary HTTP-only config for certbot ---
-          echo 'server {
-            listen 80;
-            server_name '"$DOMAIN"';
-            root '"$WWW_LETSENCRYPT"';
-          }' | sudo tee "$TEMP_NGINX" >/dev/null
+          printf '%s\n' \
+          'server {' \
+          '    listen 80;' \
+          '    server_name '"$DOMAIN"';' \
+          '    root '"$WWW_LETSENCRYPT"';' \
+          '}' | sudo tee "$TEMP_NGINX" >/dev/null
 
           sudo ln -sf "$TEMP_NGINX" /etc/nginx/sites-enabled/
           sudo nginx -t
           sudo systemctl restart nginx
 
-          # --- Check DNS resolves before requesting SSL ---
+          # --- Request SSL certificate if DNS resolves ---
           if host "$DOMAIN" >/dev/null 2>&1; then
             if [ ! -d "/etc/letsencrypt/live/$DOMAIN" ]; then
               echo "Requesting certificate for $DOMAIN..."
@@ -219,38 +219,39 @@ jobs:
             echo "⚠️ DNS for $DOMAIN does not resolve. Skipping certbot."
           fi
 
-          # --- Final HTTPS Nginx config ---
-          echo "server {
-            listen 80;
-            server_name $DOMAIN;
-            return 301 https://\$host\$request_uri;
-          }
-
-          server {
-            listen 443 ssl http2;
-            server_name $DOMAIN;
-
-            ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
-            ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
-            ssl_session_cache shared:SSL:10m;
-            ssl_session_timeout 10m;
-
-            location / {
-              proxy_pass http://127.0.0.1:$PORT;
-              proxy_set_header Host \$host;
-              proxy_set_header X-Real-IP \$remote_addr;
-              proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-              proxy_set_header X-Forwarded-Proto \$scheme;
-            }
-          }" | sudo tee "$NGINX_FILE" >/dev/null
+          # --- Final HTTPS Nginx config using printf ---
+          printf '%s\n' \
+          'server {' \
+          '    listen 80;' \
+          '    server_name '"$DOMAIN"';' \
+          '    return 301 https://$host$request_uri;' \
+          '}' \
+          '' \
+          'server {' \
+          '    listen 443 ssl http2;' \
+          '    server_name '"$DOMAIN"';' \
+          '' \
+          '    ssl_certificate /etc/letsencrypt/live/'"$DOMAIN"'/fullchain.pem;' \
+          '    ssl_certificate_key /etc/letsencrypt/live/'"$DOMAIN"'/privkey.pem;' \
+          '    ssl_session_cache shared:SSL:10m;' \
+          '    ssl_session_timeout 10m;' \
+          '' \
+          '    location / {' \
+          '        proxy_pass http://127.0.0.1:'"$PORT"';' \
+          '        proxy_set_header Host $host;' \
+          '        proxy_set_header X-Real-IP $remote_addr;' \
+          '        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;' \
+          '        proxy_set_header X-Forwarded-Proto $scheme;' \
+          '    }' \
+          '}' | sudo tee "$NGINX_FILE" >/dev/null
 
           sudo ln -sf "$NGINX_FILE" /etc/nginx/sites-enabled/
           sudo nginx -t
           sudo systemctl reload nginx
 
           echo "✅ Docker preview for $SAFE_BRANCH deployed at https://$DOMAIN (Docker port $PORT)"
-          ENDSSH
-
+      ENDSSH
+      
   deploy:
     name: 🚀 Deploy to AWS (prod_v2)
     runs-on: ubuntu-latest

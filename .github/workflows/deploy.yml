@@ -292,3 +292,58 @@ jobs:
             pm2 save
             echo "✅ Production deployment completed successfully"
           '
+
+      - name: Detect merged PR branch
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          # Get the most recent PR merged into prod_v2
+          MERGED_BRANCH=$(curl -s -H "Authorization: token $PAT_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls?state=closed&base=prod_v2&sort=updated&direction=desc&per_page=5" \
+            | jq -r '.[] | select(.merged_at != null) | .head.ref' | head -n1)
+
+          if [ -z "$MERGED_BRANCH" ]; then
+            echo "No merged PR branch found. Exiting cleanup."
+            exit 0
+          fi
+
+          echo "Merged branch to clean up: $MERGED_BRANCH"
+          echo "MERGED_BRANCH=$MERGED_BRANCH" >> $GITHUB_ENV
+
+      - name: Cleanup preview environment for merged branch
+        run: |
+          ssh -i ~/.ssh/id_rsa ubuntu@3.232.21.89 "bash -s" <<'ENDSSH'
+            set -euo pipefail
+
+            BRANCH_NAME="${MERGED_BRANCH//[^a-zA-Z0-9.-]/-}"  # sanitize branch
+            CONTAINER_NAME="container-$BRANCH_NAME"
+            NGINX_CONF="/etc/nginx/sites-available/$BRANCH_NAME.conf"
+
+            # Stop and remove Docker container
+            if sudo docker ps -a --format '{{.Names}}' | grep -q "^$CONTAINER_NAME$"; then
+              echo "Stopping and removing Docker container: $CONTAINER_NAME"
+              sudo docker rm -f "$CONTAINER_NAME"
+            fi
+
+            # Remove Docker image
+            IMAGE_NAME="debugwithian/preview:latest"
+            if sudo docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^$IMAGE_NAME$"; then
+              echo "Removing Docker image: $IMAGE_NAME"
+              sudo docker rmi -f "$IMAGE_NAME" || true
+            fi
+
+            # Remove NGINX config
+            if [ -f "$NGINX_CONF" ]; then
+              echo "Removing NGINX config: $NGINX_CONF"
+              sudo rm -f "$NGINX_CONF"
+              sudo nginx -t
+              sudo systemctl reload nginx
+            fi
+
+            # Remove temp directory
+            sudo rm -rf /tmp/$BRANCH_NAME
+
+            echo "✅ Preview environment for branch $BRANCH_NAME cleaned up."
+          ENDSSH
+
+

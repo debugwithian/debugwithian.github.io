@@ -307,8 +307,10 @@ jobs:
             exit 0
           fi
 
-          echo "Merged branches to clean up:"
-          echo "$MERGED_BRANCHES"
+          # Convert newlines to spaces for GitHub Actions environment variable
+          MERGED_BRANCHES=$(echo "$MERGED_BRANCHES" | tr '\n' ' ')
+
+          echo "Merged branches to clean up: $MERGED_BRANCHES"
           echo "MERGED_BRANCHES=$MERGED_BRANCHES" >> $GITHUB_ENV
 
       - name: Cleanup preview environments for merged branches
@@ -356,4 +358,3 @@ jobs:
 
             echo "✅ All merged preview environments cleaned up."
           ENDSSH
-

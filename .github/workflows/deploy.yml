@@ -373,6 +373,14 @@ jobs:
             fi
           done
 
+          # Extra step: remove any broken symlinks in sites-enabled
+          BROKEN_LINKS=$(find /etc/nginx/sites-enabled/ -xtype l)
+          if [ -n "$BROKEN_LINKS" ]; then
+            echo "Removing broken NGINX symlinks:"
+            echo "$BROKEN_LINKS"
+            sudo rm -f $BROKEN_LINKS
+          fi
+
           # Reload NGINX safely after all removals
           if sudo nginx -t; then
             sudo systemctl reload nginx
@@ -382,3 +390,4 @@ jobs:
             exit 1
           fi
           ENDSSH
+

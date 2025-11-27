@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rene's Portfolio - Responsive Carousel</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=14">
+<style>
+body { margin:0; background:#f5f5f5; }
+.lamp-nav {
+    position: fixed;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 80px;
+    z-index: 999;
+    height: 100%;
+}
+.lamp-nav::before {
+  content:'';
+  position:absolute; left:50%; transform:translateX(-50%); top:0; bottom:0;
+  width:4px; background:#2c2c3e; border-radius:2px;
+}
+.lamp-nav a {
+  margin:2rem 0; width:50px; height:50px; display:flex; justify-content:center; align-items:center;
+  background:#44475a; color:#fff; font-size:1.5rem; border-radius:50%; text-decoration:none;
+  transition:0.3s; box-shadow:0 0 6px rgba(0,0,0,0.5); position:relative; z-index:1;
+}
+.lamp-nav a.active, .lamp-nav a:hover {
+  background:#f0c674; color:#1e1e2f; box-shadow:0 0 20px #f0c674,0 0 30px #f0c674;
+}
+.lamp-nav a::after {
+  content: attr(data-label);
+  position:absolute; left:60px; top:50%; transform:translateY(-50%);
+  background:rgba(0,0,0,0.8); color:#fff; padding:0.3rem 0.6rem; border-radius:4px;
+  opacity:0; pointer-events:none; white-space:nowrap; font-size:0.9rem; transition:0.3s;
+}
+.lamp-nav a:hover::after { opacity:1; }
+
+.carousel-item { height:100vh; display:flex; justify-content:center; align-items:center; text-align:center; }
+.carousel-item:nth-child(odd){ background:#ffffff; }
+.carousel-item:nth-child(even){ background:#f0f0f0; }
+
+section h2 { font-size:3rem; margin-bottom:1rem; color:#1e1e2f; }
+section p, section ul { font-size:1.1rem; color:#333; }
+
+@media(max-width:768px){
+  .lamp-nav { top:auto; left:auto; transform:none; flex-direction:row; width:100%; justify-content:center; padding:0.5rem 0; margin-bottom:.5rem;padding-top:1rem; height:auto; }
+  .lamp-nav::before { display:none; }
+  .lamp-nav a { margin:0 1rem; }
+  .lamp-nav a::after { display:none; }
+}
+
+.carousel-item:not(.active) {
+    display: none;
+}
+
+.carousel-item.active {
+    display: flex;
+}
+</style>
+</head>
+<body>
+
+<!-- Lamp nav -->
+<nav class="lamp-nav">
+  <a href="#about" data-label="About Me" class="active"><i class="fas fa-user"></i></a>
+  <a href="#projects" data-label="Projects"><i class="fas fa-briefcase"></i></a>
+  <a href="#skills" data-label="Skills"><i class="fas fa-code"></i></a>
+  <a href="#contact" data-label="Contact"><i class="fas fa-envelope"></i></a>
+</nav>
+<div class="layer layer-1"></div>
+<div class="layer layer-2"></div>
+<div class="layer layer-3"></div>
+<!-- Bootstrap Carousel -->
+<div id="portfolioCarousel" class="carousel slide" data-bs-ride="false">
+  <div class="carousel-inner">
+    <div class="carousel-item active" id="about">
+      <section id="about" class="my-2">
+        <h2 class="section-title">About Me</h2>
+        <div class="row">
+          <div class="col-12 col-lg-4 about-me">
+            <div class="col">
+              <div class="card card-hover h-100 text-center p-3">
+                <img class="dev-picture" src="pp.png"/>
+                <p class="lead"><h2>Ian Diamante</h2><br/>
+                  <span class="intro-span">Senior Full Stack Engineer building scalable web & API solutions.</span>
+                </p>
+              </div>
+            </div>
+            
+          </div>
+          <div class="col-12 col-lg-8 ">
+            <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mt-2">
+              <div class="col">
+                <div class="card card-hover h-100 text-center p-3">
+                  <i class="fas fa-code fa-3x mb-3 text-primary"></i>
+                  <h5>Web Development</h5>
+                  <p>PHP, Java, Python, JavaScript frameworks, HTML/CSS, React.js, Laravel, Symfony.</p>
+                </div>
+              </div>
+              <div class="col">
+                <div class="card card-hover h-100 text-center p-3">
+                  <i class="fas fa-plug fa-3x mb-3 text-primary"></i>
+                  <h5>Microservices & API</h5>
+                  <p>Maintained 70+ microservices, Salesforce API integration, Email notifications, and automation.</p>
+                </div>
+              </div>
+              <div class="col">
+                <div class="card card-hover h-100 text-center p-3">
+                  <i class="fas fa-chart-line fa-3x mb-3 text-primary"></i>
+                  <h5>Data & Reporting</h5>
+                  <p>Data visualization using Highcharts, Konva JS automation builder, and ARIA-compliant reporting.</p>
+                </div>
+              </div>
+              <div class="col">
+                <div class="card card-hover h-100 text-center p-3">
+                  <i class="fas fa-users fa-3x mb-3 text-primary"></i>
+                  <h5>Team Leadership</h5>
+                  <p>Directed multiple micro-teams across APAC, EMEA, and LATAM, ensuring smooth project execution.</p>
+                </div>
+              </div>
+              <div class="col">
+                <div class="card card-hover h-100 text-center p-3">
+                  <i class="fas fa-database fa-3x mb-3 text-primary"></i>
+                  <h5>Cloud & DB</h5>
+                  <p>AWS DynamoDB, Elasticsearch, MySQL, server instance management, and cloud infrastructure.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div> 
+      </section>
+
+    </div>
+    <div class="carousel-item" id="projects">
+      <section><h2>Projects</h2><ul><li>Portfolio Website</li><li>AI Code Review Tool</li><li>Node.js + PM2 Deployment Scripts</li></ul></section>
+    </div>
+    <div class="carousel-item" id="skills">
+      <section><h2>Skills</h2><p>Web Development, Node.js, React, HTML/CSS, GitHub Actions, AWS Deployment.</p></section>
+    </div>
+    <div class="carousel-item" id="contact">
+      <section><h2>Contact</h2><p>Email: rene@example.com</p><p>LinkedIn: linkedin.com/in/rene</p></section>
+    </div>
+  </div>
+
+  <button class="carousel-control-prev" type="button" data-bs-target="#portfolioCarousel" data-bs-slide="prev">
+    <span class="carousel-control-prev-icon"></span>
+  </button>
+  <button class="carousel-control-next" type="button" data-bs-target="#portfolioCarousel" data-bs-slide="next">
+    <span class="carousel-control-next-icon"></span>
+  </button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// Lamp nav highlight sync
+const carousel = document.getElementById('portfolioCarousel');
+const lampLinks = document.querySelectorAll('.lamp-nav a');
+
+carousel.addEventListener('slide.bs.carousel', (e)=>{
+  lampLinks.forEach(a=>a.classList.remove('active'));
+  lampLinks[e.to].classList.add('active');
+});
+
+lampLinks.forEach((a,i)=>{
+  a.addEventListener('click',(e)=>{
+    e.preventDefault();
+    new bootstrap.Carousel(carousel).to(i);
+  });
+});
+</script>
+
+</body>
+</html>

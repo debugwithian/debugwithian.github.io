@@ -147,6 +147,7 @@ jobs:
               }
           }"
           
+          
           BASE64_CONF=$(echo "$NGINX_CONF" | base64 -w 0)
           echo "NGINX_BASE64=$BASE64_CONF" >> "$GITHUB_OUTPUT"
           
